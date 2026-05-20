@@ -1,0 +1,27 @@
+name: ShipBrain Sandbox CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print context
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "SHA: $GITHUB_SHA"
+
+      - name: Optional failure switch
+        run: |
+          if [ -f shipbrain-force-fail.txt ]; then
+            echo "shipbrain-force-fail.txt found, failing for ShipBrain CI test"
+            exit 1
+          fi
+
+      - name: Pass smoke check
+        run: echo "ShipBrain sandbox CI passed"
