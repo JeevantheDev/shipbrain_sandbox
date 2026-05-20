@@ -1,0 +1,93 @@
+import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const port = Number(process.env.PORT ?? 5174);
+const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
+
+function readBody(request) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => resolve(body));
+    request.on("error", reject);
+  });
+}
+
+function sendJson(response, status, body) {
+  response.writeHead(status, { "content-type": "application/json" });
+  response.end(JSON.stringify(body, null, 2));
+}
+
+const server = http.createServer(async (request, response) => {
+  if (request.method === "GET" && request.url === "/") {
+    const html = await fs.readFile(path.join(__dirname, "index.html"), "utf8");
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(html);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/trigger-incident") {
+    if (!routingKey) {
+      sendJson(response, 500, {
+        error: "PAGERDUTY_ROUTING_KEY is required. Create a PagerDuty Events API v2 integration and run this app with that key."
+      });
+      return;
+    }
+
+    const payload = JSON.parse(await readBody(request));
+    const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}`;
+    const pagerDutyPayload = {
+      routing_key: routingKey,
+      event_action: "trigger",
+      dedup_key: dedupKey,
+      payload: {
+        summary: payload.title,
+        source: payload.repo,
+        severity: payload.severity,
+        component: payload.service,
+        group: payload.environment,
+        class: "sandbox-drill",
+        custom_details: {
+          repo: payload.repo,
+          environment: payload.environment,
+          service: payload.service,
+          severity: payload.severity,
+          logs: payload.logs,
+          branch: payload.branch,
+          commit: payload.commit
+        }
+      },
+      links: [
+        {
+          href: "https://github.com/JeevantheDev/shipbrain_sandbox",
+          text: "Sandbox repository"
+        }
+      ],
+      images: []
+    };
+
+    const pagerDutyResponse = await fetch("https://events.pagerduty.com/v2/enqueue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(pagerDutyPayload)
+    });
+    const body = await pagerDutyResponse.json().catch(() => ({}));
+    sendJson(response, pagerDutyResponse.ok ? 202 : pagerDutyResponse.status, {
+      pagerDutyStatus: pagerDutyResponse.status,
+      dedupKey,
+      body
+    });
+    return;
+  }
+
+  sendJson(response, 404, { error: "Not found" });
+});
+
+server.listen(port, () => {
+  console.log(`ShipBrain sandbox app running at http://localhost:${port}`);
+});

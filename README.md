@@ -4,16 +4,26 @@ This repo is a sandbox sample repo for shipbrain to test
 
 This repo contains a tiny sandbox app used to test ShipBrain workflows.
 
-## PagerDuty-style incident drill
+## PagerDuty incident drill
 
-Open `index.html` in a browser. It behaves like a small checkout service control panel with a **Trigger incident** button.
+Run the sandbox app:
 
-The button posts a realistic alert payload to:
-
-```text
-https://YOUR-NGROK-URL/api/webhooks/incidents
+```bash
+PAGERDUTY_ROUTING_KEY="your-events-api-v2-routing-key" npm run dev
 ```
 
-Use the current ShipBrain ngrok URL while the local app is running.
+Open:
 
-ShipBrain requires this repo to be connected during onboarding before it accepts the incident webhook.
+```text
+http://localhost:5174
+```
+
+Click **Trigger PagerDuty incident**.
+
+Flow:
+
+```text
+Sandbox app -> PagerDuty Events API v2 -> PagerDuty incident -> PagerDuty Generic Webhook v3 -> ShipBrain /api/webhooks/incidents
+```
+
+ShipBrain requires this repo to be connected during onboarding before it accepts the PagerDuty webhook incident.
