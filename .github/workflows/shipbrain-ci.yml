@@ -2,8 +2,12 @@ name: ShipBrain Sandbox CI
 
 on:
   pull_request:
-  push:
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
+
+concurrency:
+  group: shipbrain-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:
