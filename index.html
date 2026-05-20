@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sandbox Checkout App</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f6f7f4;
+        color: #17211f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      main {
+        width: min(860px, 100%);
+        border: 1px solid #dce4df;
+        border-radius: 10px;
+        background: white;
+        padding: 28px;
+        box-shadow: 0 18px 60px rgba(16, 24, 22, 0.12);
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 22px 0;
+      }
+
+      .card {
+        border: 1px solid #dce4df;
+        border-radius: 8px;
+        background: #fbfcfb;
+        padding: 14px;
+      }
+
+      label {
+        display: block;
+        color: #65706c;
+        font-size: 12px;
+        font-weight: 800;
+        margin: 14px 0 6px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #dce4df;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 132px;
+        resize: vertical;
+      }
+
+      button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 8px;
+        background: #167765;
+        color: white;
+        cursor: pointer;
+        font-weight: 800;
+        padding: 0 16px;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .status {
+        border-radius: 999px;
+        background: #faead2;
+        color: #8b4d0b;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 5px 9px;
+      }
+
+      pre {
+        overflow: auto;
+        border-radius: 8px;
+        background: #101816;
+        color: #d7f6ee;
+        padding: 14px;
+      }
+
+      @media (max-width: 760px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="toolbar">
+        <div>
+          <span class="status">PagerDuty-style sandbox</span>
+          <h1>Checkout API Control Panel</h1>
+          <p>Trigger a realistic production alert into ShipBrain Incident Commander.</p>
+        </div>
+        <button id="trigger">Trigger incident</button>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <strong>Service</strong>
+          <p>checkout-api</p>
+        </div>
+        <div class="card">
+          <strong>Environment</strong>
+          <p>sandbox</p>
+        </div>
+        <div class="card">
+          <strong>Signal</strong>
+          <p>p95 latency breach</p>
+        </div>
+      </div>
+
+      <label for="webhook">ShipBrain incident webhook URL</label>
+      <input id="webhook" placeholder="https://your-ngrok-url/api/webhooks/incidents" />
+
+      <label for="payload">Alert payload</label>
+      <textarea id="payload"></textarea>
+
+      <h2>Delivery result</h2>
+      <pre id="result">No incident sent yet.</pre>
+    </main>
+
+    <script>
+      const defaultWebhook = localStorage.getItem("shipbrainIncidentWebhook") || "https://12d4-2401-4900-1f29-7150-7c7f-a83c-c90b-7e2c.ngrok-free.app/api/webhooks/incidents";
+      const webhookInput = document.querySelector("#webhook");
+      const payloadInput = document.querySelector("#payload");
+      const result = document.querySelector("#result");
+      const trigger = document.querySelector("#trigger");
+
+      webhookInput.value = defaultWebhook;
+
+      function buildPayload() {
+        return {
+          source: "pagerduty-sandbox",
+          repo: "JeevantheDev/shipbrain_sandbox",
+          environment: "sandbox",
+          service: "checkout-api",
+          severity: "high",
+          title: "Checkout API latency breach after deploy",
+          logs: [
+            "PagerDuty alert: checkout-api p95 latency breached 2400ms for 8 minutes.",
+            "Impact: POST /api/checkout requests timing out for test tenants.",
+            "Suspected dependency: payment-provider sandbox endpoint returning ETIMEDOUT.",
+            "Recent change: payment retry fanout flag enabled in latest release.",
+            "Suggested rollback: disable PAYMENT_RETRY_FANOUT and redeploy checkout-api."
+          ].join("\\n"),
+          branch: "main",
+          commit: "sandbox-manual-drill",
+          incidentId: `pd-sandbox-${Date.now()}`
+        };
+      }
+
+      payloadInput.value = JSON.stringify(buildPayload(), null, 2);
+
+      trigger.addEventListener("click", async () => {
+        trigger.disabled = true;
+        result.textContent = "Sending incident...";
+        try {
+          const url = webhookInput.value.trim();
+          localStorage.setItem("shipbrainIncidentWebhook", url);
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: payloadInput.value
+          });
+          const body = await response.json();
+          result.textContent = JSON.stringify({ status: response.status, body }, null, 2);
+        } catch (error) {
+          result.textContent = error instanceof Error ? error.message : "Unable to send incident";
+        } finally {
+          trigger.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
