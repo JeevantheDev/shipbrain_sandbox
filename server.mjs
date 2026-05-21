@@ -1,11 +1,31 @@
 import http from "node:http";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+loadEnvFile(path.join(__dirname, ".env"));
+
 const port = Number(process.env.PORT ?? 5174);
 const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
+
+function loadEnvFile(filePath) {
+  try {
+    const envText = fsSync.readFileSync(filePath, "utf8");
+    for (const line of envText.split(/\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const index = trimmed.indexOf("=");
+      if (index === -1) continue;
+      const key = trimmed.slice(0, index).trim();
+      const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, "");
+      if (!process.env[key]) process.env[key] = value;
+    }
+  } catch {
+    // .env is optional; explicit shell env vars still work.
+  }
+}
 
 function readBody(request) {
   return new Promise((resolve, reject) => {
