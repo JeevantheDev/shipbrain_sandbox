@@ -9,6 +9,7 @@ loadEnvFile(path.join(__dirname, ".env"));
 
 const port = Number(process.env.PORT ?? 5174);
 const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
+const releaseVersion = process.env.RELEASE_VERSION ?? "cart-local-dev";
 
 function loadEnvFile(filePath) {
   try {
@@ -51,6 +52,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.url === "/api/release") {
+    sendJson(response, 200, {
+      releaseVersion,
+      repo: "JeevantheDev/shipbrain_sandbox",
+      mode: "mock-cart-checkout"
+    });
+    return;
+  }
+
   if (request.method === "POST" && request.url === "/api/trigger-incident") {
     if (!routingKey) {
       sendJson(response, 500, {
@@ -79,7 +89,10 @@ const server = http.createServer(async (request, response) => {
           severity: payload.severity,
           logs: payload.logs,
           branch: payload.branch,
-          commit: payload.commit
+          commit: payload.commit,
+          releaseVersion: payload.releaseVersion ?? releaseVersion,
+          cart: payload.cart,
+          mockCheckout: true
         }
       },
       links: [
