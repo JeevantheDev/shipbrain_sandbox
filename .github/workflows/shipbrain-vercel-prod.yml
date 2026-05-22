@@ -1,6 +1,11 @@
 name: ShipBrain Vercel Production Deploy
 
 on:
+  push:
+    tags:
+      - "cart-v*"
+      - "hotfix-v*"
+      - "shipbrain-v*"
   workflow_dispatch:
     inputs:
       release_tag:
@@ -23,14 +28,14 @@ jobs:
       contents: read
       deployments: write
     env:
-      SHIPBRAIN_RELEASE_TAG: ${{ inputs.release_tag }}
-      SHIPBRAIN_RELEASE_SHA: ${{ inputs.release_sha }}
+      SHIPBRAIN_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      SHIPBRAIN_RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:

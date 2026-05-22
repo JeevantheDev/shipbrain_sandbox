@@ -41,7 +41,7 @@ VERCEL_PROJECT_ID
 PAGERDUTY_ROUTING_KEY
 ```
 
-The PagerDuty key is passed to Vercel at deploy time so the production mock checkout can trigger the same incident path.
+The PagerDuty key is passed to Vercel at deploy time so the production mock checkout can trigger the same incident path. Normal branch pushes run smoke CI only. Production deploys run either when ShipBrain dispatches the workflow after release approval or when a release/hotfix tag matching `cart-v*`, `hotfix-v*`, or `shipbrain-v*` is pushed.
 
 The workflow uses Vercel CLI:
 
