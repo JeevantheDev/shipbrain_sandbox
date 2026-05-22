@@ -27,3 +27,28 @@ Mock cart checkout -> PagerDuty Events API v2 -> PagerDuty incident -> PagerDuty
 ```
 
 ShipBrain requires this repo to be connected during onboarding before it accepts the PagerDuty webhook incident. The event includes the current release version so Incident Commander can connect the alert back to the PR, CI approval, deployment audit, and release tag.
+
+## ShipBrain approved Vercel deployment
+
+Production deploys are intentionally not attached to `push`. ShipBrain approves a successful CI run, merges the Draft PR, creates the release tag, then dispatches `.github/workflows/shipbrain-vercel-prod.yml`.
+
+Required GitHub Actions secrets for this sandbox repo:
+
+```text
+VERCEL_TOKEN
+VERCEL_ORG_ID
+VERCEL_PROJECT_ID
+PAGERDUTY_ROUTING_KEY
+```
+
+The PagerDuty key is passed to Vercel at deploy time so the production mock checkout can trigger the same incident path.
+
+The workflow uses Vercel CLI:
+
+```text
+npx vercel@latest pull --yes --environment=production
+npx vercel@latest build --prod
+npx vercel@latest deploy --prebuilt --prod
+```
+
+The deployed checkout is still mock-only. It serves the same cart UI plus Vercel serverless endpoints for `/api/release` and `/api/trigger-incident`.

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.mjs"
+    "dev": "node server.mjs",
+    "vercel:pull": "vercel pull --yes --environment=production",
+    "vercel:build": "vercel build --prod",
+    "vercel:deploy:prod": "vercel deploy --prebuilt --prod"
   }
 }
