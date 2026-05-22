@@ -15,6 +15,16 @@ export default async function handler(request, response) {
   }
 
   const payload = request.body ?? {};
+  if (payload.shouldTriggerIncident === false) {
+    response.status(200).json({
+      outcome: "checkout_succeeded",
+      releaseVersion: payload.releaseVersion ?? releaseVersion,
+      headingColor: payload.headingColor ?? "not provided",
+      message: "PagerDuty was not triggered because the checkout heading is not green."
+    });
+    return;
+  }
+
   const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}-${releaseVersion}`;
   const pagerDutyPayload = {
     routing_key: routingKey,

@@ -70,6 +70,16 @@ const server = http.createServer(async (request, response) => {
     }
 
     const payload = JSON.parse(await readBody(request));
+    if (payload.shouldTriggerIncident === false) {
+      sendJson(response, 200, {
+        outcome: "checkout_succeeded",
+        releaseVersion: payload.releaseVersion ?? releaseVersion,
+        headingColor: payload.headingColor ?? "not provided",
+        message: "PagerDuty was not triggered because the checkout heading is not green."
+      });
+      return;
+    }
+
     const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}`;
     const pagerDutyPayload = {
       routing_key: routingKey,
