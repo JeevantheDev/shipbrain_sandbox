@@ -3,6 +3,9 @@ name: ShipBrain Sandbox CI
 on:
   pull_request:
     types: [opened, reopened, ready_for_review]
+    branches: [develop]
+  push:
+    branches: [develop]
   workflow_dispatch:
 
 concurrency:
@@ -19,6 +22,7 @@ jobs:
         run: |
           echo "Branch: $GITHUB_REF_NAME"
           echo "SHA: $GITHUB_SHA"
+          echo "Event: $GITHUB_EVENT_NAME"
 
       - name: Optional failure switch
         run: |

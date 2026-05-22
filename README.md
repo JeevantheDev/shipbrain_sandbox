@@ -30,7 +30,7 @@ ShipBrain requires this repo to be connected during onboarding before it accepts
 
 ## ShipBrain approved Vercel deployment
 
-Production deploys are intentionally not attached to `push`. ShipBrain approves a successful CI run, merges the Draft PR, creates the release tag, then dispatches `.github/workflows/shipbrain-vercel-prod.yml`.
+Production deploys are intentionally not attached to `push`. ShipBrain opens Draft PRs against `develop`. Developers review and merge those PRs into `develop`, where the sandbox CI validates the integration branch. After that, ShipBrain approves production, creates a release tag from the merged PR commit, then dispatches `.github/workflows/shipbrain-vercel-prod.yml`.
 
 Required GitHub Actions secrets for this sandbox repo:
 
