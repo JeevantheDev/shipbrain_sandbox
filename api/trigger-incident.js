@@ -6,7 +6,7 @@ export default async function handler(request, response) {
   }
 
   const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
-  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-local-dev";
+  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.22";
   if (!routingKey) {
     response.status(500).json({
       error: "PAGERDUTY_ROUTING_KEY is required. Configure it as a Vercel production environment variable."

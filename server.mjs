@@ -9,7 +9,7 @@ loadEnvFile(path.join(__dirname, ".env"));
 
 const port = Number(process.env.PORT ?? 5174);
 const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
-const releaseVersion = process.env.RELEASE_VERSION ?? "cart-local-dev";
+const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.22";
 
 function loadEnvFile(filePath) {
   try {
