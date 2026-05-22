@@ -3,97 +3,259 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ShipBrain Cart Sandbox</title>
+    <title>Cartlane Checkout</title>
     <style>
       :root {
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f6f7f4;
+        background: #f4f6f8;
         color: #17211f;
+        --border: #d7e0df;
+        --muted: #64706d;
+        --surface: #ffffff;
+        --soft: #f8faf9;
+        --primary: #12715f;
+        --primary-strong: #0d5f50;
+        --danger: #b42318;
       }
+
       * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-      main { width: min(980px, 100%); border: 1px solid #dce4df; border-radius: 10px; background: white; padding: 28px; box-shadow: 0 18px 60px rgba(16, 24, 22, 0.12); }
-      .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
-      .layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr); gap: 18px; margin-top: 20px; }
-      .card, .cart-line { border: 1px solid #dce4df; border-radius: 8px; background: #fbfcfb; padding: 14px; }
-      .cart-line { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 10px; }
-      .summary { display: grid; gap: 10px; }
-      .summary div { display: flex; justify-content: space-between; }
-      textarea { width: 100%; min-height: 170px; border: 1px solid #dce4df; border-radius: 8px; padding: 12px; font: inherit; resize: vertical; }
-      button { min-height: 42px; border: 0; border-radius: 8px; background: #167765; color: white; cursor: pointer; font-weight: 800; padding: 0 16px; }
-      button.secondary { border: 1px solid #dce4df; background: white; color: #17211f; }
-      button:disabled { cursor: not-allowed; opacity: 0.6; }
-      .status { border-radius: 999px; background: #faead2; color: #8b4d0b; font-size: 12px; font-weight: 800; padding: 5px 9px; }
+      body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eef3f1 0%, #f8faf9 42%, #f4f6f8 100%); }
+      button, input { font: inherit; }
+      button { border: 0; cursor: pointer; }
+      button:disabled { cursor: wait; opacity: 0.68; }
+      .page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 24px 0 34px; }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 20px; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #10231f; color: white; font-weight: 900; }
+      .brand h1 { margin: 0; font-size: 20px; letter-spacing: 0; }
+      .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+      .release-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #bfe2d8; background: #e7f7f2; color: #0f654f; border-radius: 999px; padding: 8px 10px 8px 12px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+      .icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; border: 1px solid #a9d4c9; background: white; color: #0f654f; padding: 0; }
+      .icon-button svg { width: 16px; height: 16px; }
+      .hero { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 22px; box-shadow: 0 22px 70px rgba(14, 25, 22, 0.1); }
+      .hero-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 18px; }
+      .hero h2 { margin: 0; font-size: clamp(26px, 4vw, 42px); line-height: 1.02; letter-spacing: 0; }
+      .hero-copy { max-width: 620px; color: var(--muted); line-height: 1.55; margin: 8px 0 0; }
+      .secure { display: grid; gap: 6px; min-width: 220px; border: 1px solid var(--border); background: var(--soft); border-radius: 8px; padding: 12px; font-size: 13px; color: var(--muted); }
+      .secure strong { color: #17211f; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+      .stack { display: grid; gap: 14px; }
+      .panel { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 16px; }
+      .panel h3 { margin: 0 0 12px; font-size: 16px; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
+      input { min-height: 42px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; background: #fbfcfc; color: #17211f; }
+      .cart-line { display: grid; grid-template-columns: 58px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+      .cart-line:last-child { border-bottom: 0; }
+      .product-art { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 8px; background: #ddebe6; color: #0f654f; font-weight: 900; }
+      .cart-line strong { display: block; }
+      .cart-line span { color: var(--muted); font-size: 13px; }
+      .summary { position: sticky; top: 18px; display: grid; gap: 14px; }
+      .summary-row { display: flex; justify-content: space-between; color: var(--muted); }
+      .summary-row strong { color: #17211f; }
+      .total { border-top: 1px solid var(--border); padding-top: 12px; font-size: 20px; }
+      .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border-radius: 8px; padding: 0 16px; font-weight: 900; }
+      .button.primary { background: var(--primary); color: white; }
+      .button.primary:hover { background: var(--primary-strong); }
+      .button.secondary { border: 1px solid var(--border); background: white; color: #17211f; }
+      .status { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; background: #faead2; color: #8b4d0b; font-size: 12px; font-weight: 900; padding: 5px 9px; }
       .status.green { background: #dff4ed; color: #0f654f; }
-      pre { overflow: auto; border-radius: 8px; background: #101816; color: #d7f6ee; padding: 14px; }
-      @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+      .status.red { background: #fde7e7; color: var(--danger); }
+      pre { max-height: 310px; overflow: auto; white-space: pre-wrap; border-radius: 8px; background: #101816; color: #d7f6ee; padding: 14px; font-size: 12px; line-height: 1.45; }
+      .result { margin: 0; }
+      .modal-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(10, 18, 16, 0.58); z-index: 50; }
+      .modal { width: min(760px, 100%); max-height: min(760px, calc(100vh - 32px)); overflow: auto; border-radius: 10px; background: white; border: 1px solid var(--border); box-shadow: 0 26px 90px rgba(0, 0, 0, 0.28); }
+      .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px; border-bottom: 1px solid var(--border); }
+      .modal-head h3 { margin: 0; font-size: 20px; }
+      .modal-head p { margin: 5px 0 0; color: var(--muted); }
+      .modal-body { padding: 18px; display: grid; gap: 14px; }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 18px; border-top: 1px solid var(--border); background: var(--soft); }
+      .close { width: 34px; height: 34px; border-radius: 999px; background: #f1f4f3; color: #17211f; font-size: 20px; }
+      .hidden { display: none; }
+
+      @media (max-width: 920px) {
+        .layout { grid-template-columns: 1fr; }
+        .summary { position: static; }
+        .hero-head { display: grid; }
+      }
+
+      @media (max-width: 620px) {
+        .page { width: min(100% - 20px, 1180px); padding-top: 14px; }
+        .topbar, .hero-head { align-items: stretch; }
+        .grid { grid-template-columns: 1fr; }
+        .cart-line { grid-template-columns: 48px 1fr; }
+        .cart-line > strong { grid-column: 2; }
+        .release-pill { width: 100%; justify-content: space-between; }
+      }
     </style>
   </head>
   <body>
-    <main>
-      <div class="toolbar">
-        <div>
-          <span class="status green" id="version">Current version loading...</span>
-          <h1>ShipBrain Cart Checkout</h1>
-          <p>Sample ecommerce checkout used to test Spec-to-PR, CI approval, release tagging, and PagerDuty incident investigation.</p>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand">
+          <div class="mark">CL</div>
+          <div>
+            <h1>Cartlane</h1>
+            <p>Mock checkout for ShipBrain release and incident drills</p>
+          </div>
         </div>
-        <button id="checkout">Checkout</button>
+        <div class="release-pill">
+          <span id="version">Loading release</span>
+          <button class="icon-button" id="refresh" aria-label="Refresh release version" title="Refresh release version">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 0 1-15.3 6.4" />
+              <path d="M3 12A9 9 0 0 1 18.3 5.6" />
+              <path d="M18 2v4h-4" />
+              <path d="M6 22v-4h4" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="hero">
+        <div class="hero-head">
+          <div>
+            <span class="status green">Secure checkout</span>
+            <h2>Review your cart and confirm checkout.</h2>
+            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout does not charge cards or write to a database; confirming checkout sends a PagerDuty drill event with the active release version.</p>
+          </div>
+          <div class="secure">
+            <strong>Order protection active</strong>
+            <span>Payment sandbox verified</span>
+            <span>Release-aware incident tracing</span>
+          </div>
+        </div>
+
+        <section class="layout">
+          <div class="stack">
+            <section class="panel">
+              <h3>Contact</h3>
+              <div class="grid">
+                <label>
+                  Email
+                  <input value="alex@cartlane.test" readonly />
+                </label>
+                <label>
+                  Phone
+                  <input value="+1 415 555 0198" readonly />
+                </label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h3>Shipping address</h3>
+              <div class="grid">
+                <label>
+                  Name
+                  <input value="Alex Morgan" readonly />
+                </label>
+                <label>
+                  Method
+                  <input value="Express delivery" readonly />
+                </label>
+                <label>
+                  Address
+                  <input value="410 Market Street" readonly />
+                </label>
+                <label>
+                  City
+                  <input value="San Francisco, CA" readonly />
+                </label>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h3>Cart items</h3>
+              <div class="cart-line">
+                <div class="product-art">HD</div>
+                <div>
+                  <strong>ShipBrain Hoodie</strong>
+                  <span>Midweight fleece - Qty 1</span>
+                </div>
+                <strong>$64.00</strong>
+              </div>
+              <div class="cart-line">
+                <div class="product-art">IR</div>
+                <div>
+                  <strong>Incident Response Notebook</strong>
+                  <span>Dot grid paper - Qty 2</span>
+                </div>
+                <strong>$36.00</strong>
+              </div>
+            </section>
+          </div>
+
+          <aside class="summary panel">
+            <span class="status">Sandbox payment</span>
+            <h3>Order summary</h3>
+            <div class="summary-row"><span>Subtotal</span><strong>$100.00</strong></div>
+            <div class="summary-row"><span>Shipping</span><strong>$8.00</strong></div>
+            <div class="summary-row"><span>Tax</span><strong>$7.92</strong></div>
+            <div class="summary-row total"><span>Total</span><strong>$115.92</strong></div>
+            <button class="button primary" id="checkout">Confirm checkout</button>
+            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming opens a final payload review and then sends a PagerDuty event for the current release.</p>
+            <pre class="result" id="result">No checkout incident sent yet.</pre>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <span class="status red">PagerDuty drill</span>
+            <h3 id="modal-title">Confirm checkout incident</h3>
+            <p>This mock checkout will send the payload below to PagerDuty Events API v2.</p>
+          </div>
+          <button class="close" id="close-modal" aria-label="Close checkout modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="grid">
+            <div class="panel">
+              <span class="status green">Release</span>
+              <h3 id="modal-release">cart-local-dev</h3>
+            </div>
+            <div class="panel">
+              <span class="status">Total</span>
+              <h3>$115.92</h3>
+            </div>
+          </div>
+          <pre id="payload"></pre>
+        </div>
+        <div class="modal-actions">
+          <button class="button secondary" id="cancel-checkout">Cancel</button>
+          <button class="button primary" id="confirm-checkout">Confirm checkout and send incident</button>
+        </div>
       </div>
-
-      <section class="layout">
-        <div>
-          <h2>Your cart</h2>
-          <div class="cart-line">
-            <div>
-              <strong>ShipBrain Hoodie</strong>
-              <p>Qty 1 · Production-ready comfort</p>
-            </div>
-            <strong>$64.00</strong>
-          </div>
-          <div class="cart-line">
-            <div>
-              <strong>Incident Response Notebook</strong>
-              <p>Qty 2 · Postmortem-friendly paper</p>
-            </div>
-            <strong>$36.00</strong>
-          </div>
-          <div class="card">
-            <h3>PagerDuty incident payload</h3>
-            <textarea id="payload"></textarea>
-          </div>
-        </div>
-
-        <aside>
-          <div class="card summary">
-            <h2>Order summary</h2>
-            <div><span>Subtotal</span><strong>$100.00</strong></div>
-            <div><span>Shipping</span><strong>$8.00</strong></div>
-            <div><span>Tax</span><strong>$7.92</strong></div>
-            <div><span>Total</span><strong>$115.92</strong></div>
-            <button id="trigger">Trigger checkout latency incident</button>
-            <button class="secondary" id="refresh">Refresh release version</button>
-          </div>
-          <h2>Delivery result</h2>
-          <pre id="result">No checkout incident sent yet.</pre>
-        </aside>
-      </section>
-    </main>
+    </div>
 
     <script>
-      const payloadInput = document.querySelector("#payload");
+      const payloadPreview = document.querySelector("#payload");
       const result = document.querySelector("#result");
-      const trigger = document.querySelector("#trigger");
       const checkout = document.querySelector("#checkout");
       const refresh = document.querySelector("#refresh");
       const version = document.querySelector("#version");
+      const modal = document.querySelector("#checkout-modal");
+      const closeModal = document.querySelector("#close-modal");
+      const cancelCheckout = document.querySelector("#cancel-checkout");
+      const confirmCheckout = document.querySelector("#confirm-checkout");
+      const modalRelease = document.querySelector("#modal-release");
       let releaseVersion = "cart-local-dev";
 
       async function loadRelease() {
-        const response = await fetch("/api/release");
-        const body = await response.json();
-        releaseVersion = body.releaseVersion;
-        version.textContent = `Current release ${releaseVersion}`;
-        payloadInput.value = JSON.stringify(buildPayload(), null, 2);
+        refresh.disabled = true;
+        try {
+          const response = await fetch("/api/release");
+          const body = await response.json();
+          releaseVersion = body.releaseVersion;
+          version.textContent = `Release ${releaseVersion}`;
+          updatePayloadPreview();
+        } catch (error) {
+          version.textContent = "Release unavailable";
+        } finally {
+          refresh.disabled = false;
+        }
       }
 
       function buildPayload() {
@@ -105,7 +267,7 @@
           title: `Checkout API latency breach on ${releaseVersion}`,
           logs: [
             `PagerDuty drill: checkout-api p95 latency breached 2400ms on release ${releaseVersion}.`,
-            "Customer action: checkout button submitted cart total $115.92.",
+            "Customer action: confirm checkout submitted cart total $115.92.",
             "Impact: POST /api/checkout requests timing out for test tenants.",
             "Suspected dependency: payment-provider sandbox endpoint returning ETIMEDOUT.",
             "Suggested rollback: disable PAYMENT_RETRY_FANOUT and redeploy previous cart release."
@@ -114,35 +276,61 @@
           commit: releaseVersion,
           releaseVersion,
           cart: {
+            orderId: "CL-MOCK-1048",
             total: 115.92,
+            currency: "USD",
             items: ["ShipBrain Hoodie", "Incident Response Notebook"]
           }
         };
       }
 
+      function updatePayloadPreview() {
+        modalRelease.textContent = releaseVersion;
+        payloadPreview.textContent = JSON.stringify(buildPayload(), null, 2);
+      }
+
+      function openCheckoutModal() {
+        updatePayloadPreview();
+        modal.classList.remove("hidden");
+      }
+
+      function hideCheckoutModal() {
+        modal.classList.add("hidden");
+      }
+
       async function sendIncident() {
-        trigger.disabled = true;
+        const payload = buildPayload();
+        confirmCheckout.disabled = true;
         checkout.disabled = true;
         result.textContent = "Sending checkout alert to PagerDuty...";
         try {
           const response = await fetch("/api/trigger-incident", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: payloadInput.value
+            body: JSON.stringify(payload)
           });
           const body = await response.json();
           result.textContent = JSON.stringify({ status: response.status, body }, null, 2);
+          if (response.ok) hideCheckoutModal();
         } catch (error) {
           result.textContent = error instanceof Error ? error.message : "Unable to send incident";
         } finally {
-          trigger.disabled = false;
+          confirmCheckout.disabled = false;
           checkout.disabled = false;
         }
       }
 
-      trigger.addEventListener("click", sendIncident);
-      checkout.addEventListener("click", sendIncident);
+      checkout.addEventListener("click", openCheckoutModal);
+      confirmCheckout.addEventListener("click", sendIncident);
       refresh.addEventListener("click", loadRelease);
+      closeModal.addEventListener("click", hideCheckoutModal);
+      cancelCheckout.addEventListener("click", hideCheckoutModal);
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) hideCheckoutModal();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hideCheckoutModal();
+      });
       loadRelease();
     </script>
   </body>
