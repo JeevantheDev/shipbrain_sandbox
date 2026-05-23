@@ -1,20 +1,30 @@
 # ShipBrain Incident Hotfix
 
-Incident: Checkout API latency breach on hotfix-v2026.05.22-001
-Source release: not captured
+Incident: Checkout API latency breach on cart-v2026.05.23
+Source release: cart-v2026.05.23
 Repository: JeevantheDev/shipbrain_sandbox
 
 ## AI analysis
 
-Root cause: The deployment of commit `05d911ebdcd8f68689013b41e0454dbb9ad5a0c8` ("Change h2 color to red") as part of `hotfix-v2026.05.22-001` introduced a performance regression or an unintended side effect that caused a latency breach in the Checkout API. While the commit message suggests a purely visual CSS change, the observed API latency indicates either the commit contained non-visual changes, or the CSS change itself triggered an unexpected performance bottleneck in the application's interaction with the API. The subsequent commit `2668a598ee222d111544784ffc739fface0afade` ("Change h2 color from red to blue") resolved the issue, reinforcing the causality.
+Root cause: The Checkout API (POST /api/checkout) is experiencing a latency breach (p95 > 2400ms) due to downstream timeouts (ETIMEDOUT) from the payment-provider sandbox endpoint. This is likely exacerbated by the PAYMENT_RETRY_FANOUT mechanism, which may be causing cascading retries and timing out the client requests.
 
-Fix proposal: 1. Conduct a thorough post-mortem analysis of commit `05d911ebdcd8f68689013b41e0454dbb9ad5a0c8` to identify the exact changes that led to the API latency, especially looking for non-CSS modifications, script injections, or resource loading changes. 2. Implement stricter code review processes for hotfixes, particularly for changes described as "visual," to ensure they do not inadvertently introduce functional or performance regressions. 3. Enhance monitoring to detect subtle performance degradations more proactively, especially after UI-related deployments, to catch such issues before they escalate to a full latency breach.
+Fix proposal: Disable the PAYMENT_RETRY_FANOUT feature flag or configuration setting to prevent excessive retries to the failing payment-provider sandbox. Additionally, implement a circuit breaker and reduce the connection/read timeout for the payment provider integration to fail fast rather than holding up the checkout request.
 
-How it occurred: A hotfix (`hotfix-v2026.05.22-001`) was deployed to the ShipBrain Sandbox Checkout API, which included a commit (`05d911ebdcd8f68689013b41e0454dbb9ad5a0c8`) intended to change the `h2` heading color to red. Immediately following this deployment, a latency breach was observed in the Checkout API. A subsequent hotfix was deployed, containing commit `2668a598ee222d111544784ffc739fface0afade` which changed the `h2` color from red to blue, resolving the latency issue.
+How it occurred: This release (cart-v2026.05.23) promoted changes from the develop branch to main, which included previous hotfixes for checkout API latency breaches (e.g., hotfix-v2026.05.22-001) and minor UI changes. However, the underlying latency issue persists or has been reintroduced via the payment retry fanout behavior.
 
 ## Related release commits
 - 48d4df4 hotfix: Checkout API latency breach on hotfix-v2026.05.22-001
 - 2668a59 Change h2 color from red to blue
+- 7e831d6 Merge pull request #10 from JeevantheDev/hotfix/incident-8bcc8afd-checkout-api-latency-breach-on-hotfix-v2026-05-2
+- f24db26 hotfix: Checkout API latency breach on hotfix-v2026.05.22-001
+- a07aff0 Change h2 color from blue to green
+- cfe7559 Merge pull request #11 from JeevantheDev/hotfix/incident-8cf7a357-checkout-api-latency-breach-on-hotfix-v2026-05-2
+- 48d4df4 hotfix: Checkout API latency breach on hotfix-v2026.05.22-001
+- 2668a59 Change h2 color from red to blue
+- 7e831d6 Merge pull request #10 from JeevantheDev/hotfix/incident-8bcc8afd-checkout-api-latency-breach-on-hotfix-v2026-05-2
+- f24db26 hotfix: Checkout API latency breach on hotfix-v2026.05.22-001
+- a07aff0 Change h2 color from blue to green
+- cfe7559 Merge pull request #11 from JeevantheDev/hotfix/incident-8cf7a357-checkout-api-latency-breach-on-hotfix-v2026-05-2
 
 ## Developer instructions
 
