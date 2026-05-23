@@ -7,6 +7,15 @@ on:
   push:
     branches: [develop, main]
   workflow_dispatch:
+    inputs:
+      force_fail:
+        description: Trigger a deliberate ShipBrain CI failure for E2E testing
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: shipbrain-ci-${{ github.event.pull_request.number || github.ref }}
@@ -32,8 +41,12 @@ jobs:
           echo "PR     : ${{ github.event.pull_request.number || 'n/a' }}"
       - name: Force-fail escape hatch
         run: |
-          if [ -f shipbrain-force-fail.txt ]; then
-            echo "Force-fail file found - failing for ShipBrain CI test"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_fail }}" = "true" ]; then
+            echo "Manual ShipBrain force-fail requested for E2E testing"
+            exit 1
+          fi
+          if [ "${SHIPBRAIN_FORCE_FAIL:-false}" = "true" ]; then
+            echo "SHIPBRAIN_FORCE_FAIL=true - failing for ShipBrain CI test"
             exit 1
           fi
       - name: Install dependencies
