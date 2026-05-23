@@ -6,7 +6,7 @@ export default async function handler(request, response) {
   }
 
   const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
-  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.22";
+  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.24";
   if (!routingKey) {
     response.status(500).json({
       error: "Incident provider routing key is required. Configure the sandbox alert provider key as a production environment variable."
