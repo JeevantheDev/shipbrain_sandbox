@@ -6,7 +6,7 @@ The developer should continue work on this feature branch and commit the request
 
 ## Requested tasks
 
-### Update Cartlane checkout heading color
-Manually update the primary checkout heading color in `index.html`. Choose a clear, readable color that still fits the Cartlane design. This task is a handoff; ShipBrain has created the feature branch and Draft PR, but the code change itself needs to be committed by you on this branch.
+### Update checkout heading color in index.html
+Change the main checkout heading color from green to #0066cc (blue) in index.html.
 
-Suggested files: shipbrain/generated-task-1.ts
+Suggested files: index.html
