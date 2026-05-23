@@ -6,7 +6,7 @@ export default async function handler(request, response) {
   }
 
   const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
-  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-local-dev";
+  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.22";
   if (!routingKey) {
     response.status(500).json({
       error: "Incident provider routing key is required. Configure the sandbox alert provider key as a production environment variable."
@@ -20,7 +20,7 @@ export default async function handler(request, response) {
       outcome: "checkout_succeeded",
       releaseVersion: payload.releaseVersion ?? releaseVersion,
       headingColor: payload.headingColor ?? "not provided",
-      message: "No incident was opened because the checkout heading is not green."
+      message: "PagerDuty was not triggered because the checkout heading is not green."
     });
     return;
   }
@@ -65,11 +65,37 @@ export default async function handler(request, response) {
     body: JSON.stringify(pagerDutyPayload)
   });
   const body = await pagerDutyResponse.json().catch(() => ({}));
+  const shipBrainWebhookUrl =
+    process.env.SHIPBRAIN_INCIDENT_WEBHOOK_URL ??
+    "https://12d4-2401-4900-1f29-7150-7c7f-a83c-c90b-7e2c.ngrok-free.app/api/webhooks/incidents";
+  const shipBrainResponse = await fetch(shipBrainWebhookUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      source: "cartlane-checkout",
+      repo: payload.repo,
+      environment: payload.environment,
+      service: payload.service,
+      severity: payload.severity,
+      title: payload.title,
+      logs: payload.logs,
+      branch: payload.branch,
+      commit: payload.commit,
+      releaseVersion: payload.releaseVersion ?? releaseVersion,
+      incidentId: dedupKey
+    })
+  }).catch((error) => ({ ok: false, status: 0, json: async () => ({ error: error instanceof Error ? error.message : "ShipBrain webhook failed" }) }));
+  const shipBrainBody = await shipBrainResponse.json().catch(() => ({}));
 
   response.status(pagerDutyResponse.ok ? 202 : pagerDutyResponse.status).json({
     alertProviderStatus: pagerDutyResponse.status,
     dedupKey,
     providerAccepted: pagerDutyResponse.ok,
-    body
+    body,
+    pagerDutyStatus: pagerDutyResponse.status,
+    shipBrainStatus: shipBrainResponse.status,
+    dedupKey,
+    body,
+    shipBrainBody
   });
 }

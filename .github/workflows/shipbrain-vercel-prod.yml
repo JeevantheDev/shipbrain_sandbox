@@ -1,6 +1,11 @@
 name: ShipBrain Vercel Production Deploy
 
 on:
+  push:
+    tags:
+      - "cart-v*"
+      - "hotfix-v*"
+      - "shipbrain-v*"
   workflow_dispatch:
     inputs:
       release_tag:
@@ -23,14 +28,14 @@ jobs:
       contents: read
       deployments: write
     env:
-      SHIPBRAIN_RELEASE_TAG: ${{ inputs.release_tag }}
-      SHIPBRAIN_RELEASE_SHA: ${{ inputs.release_sha }}
+      SHIPBRAIN_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      SHIPBRAIN_RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.sha }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -40,6 +45,21 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$SHIPBRAIN_RELEASE_SHA"
           echo "Deploying $SHIPBRAIN_RELEASE_TAG at $SHIPBRAIN_RELEASE_SHA"
+
+      - name: Stamp ShipBrain release version
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const releaseTag = process.env.SHIPBRAIN_RELEASE_TAG;
+          const files = ['index.html', 'api/release.js', 'api/trigger-incident.js', 'server.mjs'];
+          const pattern = /cart-v\d{4}\.\d{2}\.\d{2}(?:[-\w.]*)?|hotfix-v\d{4}\.\d{2}\.\d{2}(?:[-\w.]*)?|shipbrain-v\d{4}\.\d{2}\.\d{2}(?:[-\w.]*)?|cart-local-dev/g;
+          for (const file of files) {
+            if (!fs.existsSync(file)) continue;
+            const current = fs.readFileSync(file, 'utf8');
+            const next = current.replace(pattern, releaseTag);
+            if (next !== current) fs.writeFileSync(file, next);
+          }
+          NODE
 
       - name: Pull Vercel project settings
         run: npx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"

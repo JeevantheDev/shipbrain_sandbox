@@ -30,7 +30,7 @@ ShipBrain requires this repo to be connected during onboarding before it accepts
 
 ## ShipBrain approved Vercel deployment
 
-Production deploys are intentionally not attached to `push`. ShipBrain opens Draft PRs against `develop`. Developers review and merge those PRs into `develop`, where the sandbox CI validates the integration branch. After that, ShipBrain approves production, creates a release tag from the merged PR commit, then dispatches `.github/workflows/shipbrain-vercel-prod.yml`.
+Production deploys are intentionally not attached to `push`. ShipBrain opens Draft PRs against `develop`. Developers review and merge those PRs into `develop`, where the sandbox CI validates the integration branch. After that, ShipBrain approval creates a release PR from `develop` to `main`. When that release PR is merged, ShipBrain creates a release tag from the merged `main` commit, then dispatches `.github/workflows/shipbrain-vercel-prod.yml`.
 
 Required GitHub Actions secrets for this sandbox repo:
 
@@ -39,9 +39,10 @@ VERCEL_TOKEN
 VERCEL_ORG_ID
 VERCEL_PROJECT_ID
 PAGERDUTY_ROUTING_KEY
+SHIPBRAIN_INCIDENT_WEBHOOK_URL
 ```
 
-The alert provider key is passed to Vercel at deploy time so the production mock checkout can trigger the same incident path. `SHIPBRAIN_INCIDENT_WEBHOOK_URL` lets the sandbox mirror the same checkout alert directly into ShipBrain while the configured provider still receives the alert, which keeps demos reliable even when the provider deduplicates an already-active incident. Normal branch pushes run smoke CI only. Production deploys run either when ShipBrain dispatches the workflow after release approval or when a release/hotfix tag matching `cart-v*`, `hotfix-v*`, or `shipbrain-v*` is pushed.
+The PagerDuty key is passed to Vercel at deploy time so the production mock checkout can trigger the same incident path. `SHIPBRAIN_INCIDENT_WEBHOOK_URL` lets the sandbox mirror the same checkout alert directly into ShipBrain while PagerDuty still receives the alert, which keeps demos reliable even when PagerDuty deduplicates an already-active incident. Normal branch pushes run smoke CI only. Production deploys run either when ShipBrain dispatches the workflow after release approval or when a release/hotfix tag matching `cart-v*`, `hotfix-v*`, or `shipbrain-v*` is pushed.
 
 The workflow uses Vercel CLI:
 
