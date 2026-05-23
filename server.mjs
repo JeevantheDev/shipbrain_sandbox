@@ -64,12 +64,22 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/trigger-incident") {
     if (!routingKey) {
       sendJson(response, 500, {
-        error: "PAGERDUTY_ROUTING_KEY is required. Create a PagerDuty Events API v2 integration and run this app with that key."
+        error: "Incident provider routing key is required. Configure the sandbox alert provider key in the runtime environment."
       });
       return;
     }
 
     const payload = JSON.parse(await readBody(request));
+    if (payload.shouldTriggerIncident === false) {
+      sendJson(response, 200, {
+        outcome: "checkout_succeeded",
+        releaseVersion: payload.releaseVersion ?? releaseVersion,
+        headingColor: payload.headingColor ?? "not provided",
+        message: "No incident was opened because the checkout heading is not green."
+      });
+      return;
+    }
+
     const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}`;
     const pagerDutyPayload = {
       routing_key: routingKey,
@@ -111,8 +121,9 @@ const server = http.createServer(async (request, response) => {
     });
     const body = await pagerDutyResponse.json().catch(() => ({}));
     sendJson(response, pagerDutyResponse.ok ? 202 : pagerDutyResponse.status, {
-      pagerDutyStatus: pagerDutyResponse.status,
+      alertProviderStatus: pagerDutyResponse.status,
       dedupKey,
+      providerAccepted: pagerDutyResponse.ok,
       body
     });
     return;

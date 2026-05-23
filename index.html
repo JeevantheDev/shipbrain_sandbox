@@ -118,7 +118,7 @@
           <div>
             <span class="status green">Secure checkout</span>
             <h2>Review your cart and confirm checkout.</h2>
-            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout does not charge cards or write to a database; confirming checkout sends a PagerDuty drill event with the active release version.</p>
+            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout does not charge cards or write to a database; confirming checkout runs a production-style health check with the active release version.</p>
           </div>
           <div class="secure">
             <strong>Order protection active</strong>
@@ -194,7 +194,7 @@
             <div class="summary-row"><span>Tax</span><strong>$7.92</strong></div>
             <div class="summary-row total"><span>Total</span><strong>$115.92</strong></div>
             <button class="button primary" id="checkout">Confirm checkout</button>
-            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming opens a final payload review and then sends a PagerDuty event for the current release.</p>
+            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming checkout succeeds unless the checkout heading is green; green simulates a production regression and opens an incident in ShipBrain.</p>
             <pre class="result" id="result">No checkout incident sent yet.</pre>
           </aside>
         </section>
@@ -205,9 +205,9 @@
       <div class="modal">
         <div class="modal-head">
           <div>
-            <span class="status red">PagerDuty drill</span>
-            <h3 id="modal-title">Confirm checkout incident</h3>
-            <p>This mock checkout will send the payload below to PagerDuty Events API v2.</p>
+            <span class="status red" id="modal-status">Incident drill</span>
+            <h3 id="modal-title">Confirm checkout</h3>
+            <p id="modal-description">This mock checkout will validate whether the current UI color should raise an incident.</p>
           </div>
           <button class="close" id="close-modal" aria-label="Close checkout modal">&times;</button>
         </div>
@@ -242,7 +242,17 @@
       const cancelCheckout = document.querySelector("#cancel-checkout");
       const confirmCheckout = document.querySelector("#confirm-checkout");
       const modalRelease = document.querySelector("#modal-release");
+      const modalStatus = document.querySelector("#modal-status");
+      const modalDescription = document.querySelector("#modal-description");
       let releaseVersion = "cart-local-dev";
+
+      function headingColorMode() {
+        const heading = document.querySelector(".hero h2");
+        const color = window.getComputedStyle(heading).color;
+        const normalized = color.replace(/\s+/g, "").toLowerCase();
+        const isGreen = normalized === "rgb(0,128,0)" || normalized === "green" || normalized === "rgb(18,113,95)" || normalized === "rgb(13,95,80)";
+        return { color, isGreen };
+      }
 
       async function loadRelease() {
         refresh.disabled = true;
@@ -267,7 +277,7 @@
           severity: "critical",
           title: `Checkout API latency breach on ${releaseVersion}`,
           logs: [
-            `PagerDuty drill: checkout-api p95 latency breached 2400ms on release ${releaseVersion}.`,
+            `Production alert: checkout-api p95 latency breached 2400ms on release ${releaseVersion}.`,
             "Customer action: confirm checkout submitted cart total $115.92.",
             "Impact: POST /api/checkout requests timing out for test tenants.",
             "Suspected dependency: payment-provider sandbox endpoint returning ETIMEDOUT.",
@@ -276,6 +286,8 @@
           branch: "main",
           commit: releaseVersion,
           releaseVersion,
+          headingColor: headingColorMode().color,
+          shouldTriggerIncident: true,
           cart: {
             orderId: "CL-MOCK-1048",
             total: 115.92,
@@ -286,8 +298,27 @@
       }
 
       function updatePayloadPreview() {
+        const colorMode = headingColorMode();
         modalRelease.textContent = releaseVersion;
-        payloadPreview.textContent = JSON.stringify(buildPayload(), null, 2);
+        if (colorMode.isGreen) {
+          modalStatus.className = "status red";
+          modalStatus.textContent = "Incident drill";
+          modalDescription.textContent = "The checkout heading is green, so this mock release is treated as a regression and will open a ShipBrain incident.";
+          confirmCheckout.textContent = "Confirm checkout and send incident";
+          payloadPreview.textContent = JSON.stringify({ headingColor: colorMode.color, outcome: "failure", incidentPayload: buildPayload() }, null, 2);
+        } else {
+          modalStatus.className = "status green";
+          modalStatus.textContent = "Checkout healthy";
+          modalDescription.textContent = "The checkout heading is not green, so the mock checkout will complete successfully without opening an incident.";
+          confirmCheckout.textContent = "Confirm successful checkout";
+          payloadPreview.textContent = JSON.stringify({
+            headingColor: colorMode.color,
+            outcome: "success",
+            releaseVersion,
+            orderId: "CL-MOCK-1048",
+            total: 115.92
+          }, null, 2);
+        }
       }
 
       function openCheckoutModal() {
@@ -300,10 +331,23 @@
       }
 
       async function sendIncident() {
+        const colorMode = headingColorMode();
+        if (!colorMode.isGreen) {
+          result.textContent = JSON.stringify({
+            status: 200,
+            outcome: "checkout_succeeded",
+            releaseVersion,
+            headingColor: colorMode.color,
+            message: "Checkout completed successfully. No incident was opened because the heading is not green."
+          }, null, 2);
+          hideCheckoutModal();
+          return;
+        }
+
         const payload = buildPayload();
         confirmCheckout.disabled = true;
         checkout.disabled = true;
-        result.textContent = "Sending checkout alert to PagerDuty...";
+        result.textContent = "Sending checkout alert to ShipBrain...";
         try {
           const response = await fetch("/api/trigger-incident", {
             method: "POST",

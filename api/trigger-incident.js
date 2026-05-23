@@ -9,12 +9,22 @@ export default async function handler(request, response) {
   const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-local-dev";
   if (!routingKey) {
     response.status(500).json({
-      error: "PAGERDUTY_ROUTING_KEY is required. Configure it as a Vercel production environment variable."
+      error: "Incident provider routing key is required. Configure the sandbox alert provider key as a production environment variable."
     });
     return;
   }
 
   const payload = request.body ?? {};
+  if (payload.shouldTriggerIncident === false) {
+    response.status(200).json({
+      outcome: "checkout_succeeded",
+      releaseVersion: payload.releaseVersion ?? releaseVersion,
+      headingColor: payload.headingColor ?? "not provided",
+      message: "No incident was opened because the checkout heading is not green."
+    });
+    return;
+  }
+
   const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}-${releaseVersion}`;
   const pagerDutyPayload = {
     routing_key: routingKey,
@@ -57,8 +67,9 @@ export default async function handler(request, response) {
   const body = await pagerDutyResponse.json().catch(() => ({}));
 
   response.status(pagerDutyResponse.ok ? 202 : pagerDutyResponse.status).json({
-    pagerDutyStatus: pagerDutyResponse.status,
+    alertProviderStatus: pagerDutyResponse.status,
     dedupKey,
+    providerAccepted: pagerDutyResponse.ok,
     body
   });
 }
