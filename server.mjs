@@ -64,7 +64,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/trigger-incident") {
     if (!routingKey) {
       sendJson(response, 500, {
-        error: "Incident provider routing key is required. Configure the sandbox alert provider key in the runtime environment."
+        error: "PAGERDUTY_ROUTING_KEY is required. Create a PagerDuty Events API v2 integration and run this app with that key."
       });
       return;
     }
@@ -75,7 +75,7 @@ const server = http.createServer(async (request, response) => {
         outcome: "checkout_succeeded",
         releaseVersion: payload.releaseVersion ?? releaseVersion,
         headingColor: payload.headingColor ?? "not provided",
-        message: "No incident was opened because the checkout heading is not green."
+        message: "PagerDuty was not triggered because the checkout heading is not green."
       });
       return;
     }
@@ -142,10 +142,10 @@ const server = http.createServer(async (request, response) => {
     }).catch((error) => ({ ok: false, status: 0, json: async () => ({ error: error instanceof Error ? error.message : "ShipBrain webhook failed" }) }));
     const shipBrainBody = await shipBrainResponse.json().catch(() => ({}));
     sendJson(response, pagerDutyResponse.ok ? 202 : pagerDutyResponse.status, {
-      alertProviderStatus: pagerDutyResponse.status,
+      pagerDutyStatus: pagerDutyResponse.status,
       shipBrainStatus: shipBrainResponse.status,
       dedupKey,
-      providerAccepted: pagerDutyResponse.ok,
+      body,
       shipBrainBody
     });
     return;

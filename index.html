@@ -118,7 +118,7 @@
           <div>
             <span class="status green">Secure checkout</span>
             <h2>Review your cart and confirm checkout.</h2>
-            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout does not charge cards or write to a database; confirming checkout runs a production-style health check with the active release version.</p>
+            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout does not charge cards or write to a database; confirming checkout sends a PagerDuty drill event with the active release version.</p>
           </div>
           <div class="secure">
             <strong>Order protection active</strong>
@@ -194,7 +194,7 @@
             <div class="summary-row"><span>Tax</span><strong>$7.92</strong></div>
             <div class="summary-row total"><span>Total</span><strong>$115.92</strong></div>
             <button class="button primary" id="checkout">Confirm checkout</button>
-            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming checkout succeeds unless the checkout heading is green; green simulates a production regression and opens an incident in ShipBrain.</p>
+            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming checkout succeeds unless the checkout heading is green; green simulates a production regression and raises PagerDuty.</p>
             <pre class="result" id="result">No checkout incident sent yet.</pre>
           </aside>
         </section>
@@ -205,7 +205,7 @@
       <div class="modal">
         <div class="modal-head">
           <div>
-            <span class="status red" id="modal-status">Incident drill</span>
+            <span class="status red" id="modal-status">PagerDuty drill</span>
             <h3 id="modal-title">Confirm checkout</h3>
             <p id="modal-description">This mock checkout will validate whether the current UI color should raise an incident.</p>
           </div>
@@ -277,7 +277,7 @@
           severity: "critical",
           title: `Checkout API latency breach on ${releaseVersion}`,
           logs: [
-            `Production alert: checkout-api p95 latency breached 2400ms on release ${releaseVersion}.`,
+            `PagerDuty drill: checkout-api p95 latency breached 2400ms on release ${releaseVersion}.`,
             "Customer action: confirm checkout submitted cart total $115.92.",
             "Impact: POST /api/checkout requests timing out for test tenants.",
             "Suspected dependency: payment-provider sandbox endpoint returning ETIMEDOUT.",
@@ -302,14 +302,14 @@
         modalRelease.textContent = releaseVersion;
         if (colorMode.isGreen) {
           modalStatus.className = "status red";
-          modalStatus.textContent = "Incident drill";
-          modalDescription.textContent = "The checkout heading is green, so this mock release is treated as a regression and will open a ShipBrain incident.";
+          modalStatus.textContent = "PagerDuty drill";
+          modalDescription.textContent = "The checkout heading is green, so this mock release is treated as a regression and will raise PagerDuty.";
           confirmCheckout.textContent = "Confirm checkout and send incident";
-          payloadPreview.textContent = JSON.stringify({ headingColor: colorMode.color, outcome: "failure", incidentPayload: buildPayload() }, null, 2);
+          payloadPreview.textContent = JSON.stringify({ headingColor: colorMode.color, outcome: "failure", pagerDutyPayload: buildPayload() }, null, 2);
         } else {
           modalStatus.className = "status green";
           modalStatus.textContent = "Checkout healthy";
-          modalDescription.textContent = "The checkout heading is not green, so the mock checkout will complete successfully without opening an incident.";
+          modalDescription.textContent = "The checkout heading is not green, so the mock checkout will complete successfully without PagerDuty.";
           confirmCheckout.textContent = "Confirm successful checkout";
           payloadPreview.textContent = JSON.stringify({
             headingColor: colorMode.color,
@@ -338,7 +338,7 @@
             outcome: "checkout_succeeded",
             releaseVersion,
             headingColor: colorMode.color,
-            message: "Checkout completed successfully. No incident was opened because the heading is not green."
+            message: "Checkout completed successfully. PagerDuty was not triggered because the heading is not green."
           }, null, 2);
           hideCheckoutModal();
           return;
@@ -347,7 +347,7 @@
         const payload = buildPayload();
         confirmCheckout.disabled = true;
         checkout.disabled = true;
-        result.textContent = "Sending checkout alert to ShipBrain...";
+        result.textContent = "Sending checkout alert to PagerDuty...";
         try {
           const response = await fetch("/api/trigger-incident", {
             method: "POST",
