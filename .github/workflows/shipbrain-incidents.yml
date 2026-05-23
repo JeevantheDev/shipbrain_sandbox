@@ -1,0 +1,49 @@
+name: ShipBrain incident alerting
+
+on:
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'failure' ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Send PagerDuty alert
+        run: |
+          curl -s -X POST https://events.pagerduty.com/v2/enqueue \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"routing_key\": \"${{ secrets.PAGERDUTY_ROUTING_KEY }}\",
+              \"event_action\": \"trigger\",
+              \"dedup_key\": \"${{ github.event.workflow_run.id || github.run_id }}\",
+              \"payload\": {
+                \"summary\": \"[${{ github.repository }}] ${{ github.event.workflow_run.name || github.workflow }} failed\",
+                \"severity\": \"error\",
+                \"source\": \"${{ github.repository }}\",
+                \"custom_details\": {
+                  \"repo\": \"${{ github.repository }}\",
+                  \"commit_sha\": \"${{ github.event.workflow_run.head_sha || github.sha }}\",
+                  \"branch\": \"${{ github.event.workflow_run.head_branch || github.ref_name }}\",
+                  \"run_url\": \"${{ github.event.workflow_run.html_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",
+                  \"actor\": \"${{ github.event.workflow_run.triggering_actor.login || github.actor }}\"
+                }
+              }
+            }"
+  resolve:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Resolve PagerDuty incident
+        run: |
+          curl -s -X POST https://events.pagerduty.com/v2/enqueue \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"routing_key\": \"${{ secrets.PAGERDUTY_ROUTING_KEY }}\",
+              \"event_action\": \"resolve\",
+              \"dedup_key\": \"${{ github.event.workflow_run.id }}\"
+            }"
