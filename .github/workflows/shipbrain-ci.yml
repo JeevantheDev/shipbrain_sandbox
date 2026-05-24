@@ -123,7 +123,11 @@ jobs:
       - name: Deploy to Vercel Preview
         id: deploy
         run: |
-          DEPLOY_URL=$(npx vercel@latest deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 | grep -E '^https://' | tail -1)
+          OUTPUT=$(npx vercel@latest deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}" 2>&1)
+          echo "Vercel output:"
+          echo "$OUTPUT"
+          DEPLOY_URL=$(echo "$OUTPUT" | grep -oE 'https://[a-zA-Z0-9._-]+\.vercel\.app' | tail -1)
+          echo "Extracted URL: $DEPLOY_URL"
           echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
           BRANCH_ALIAS=$(npx vercel@latest alias --token="${{ secrets.VERCEL_TOKEN }}" ls 2>/dev/null | grep develop | head -1 | awk '{print $1}' || echo "")
           echo "branch_alias=$BRANCH_ALIAS" >> $GITHUB_OUTPUT
