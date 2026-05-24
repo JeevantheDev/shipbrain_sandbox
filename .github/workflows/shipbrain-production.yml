@@ -129,14 +129,7 @@ jobs:
             --base "develop" \
             --head "$SYNC_BRANCH" \
             --title "chore: sync ${{ inputs.release_tag }} hotfix to develop" \
-            --body "## Reverse Sync
-
-This PR syncs the hotfix **${{ inputs.release_tag }}** from \`main\` back to \`develop\`.
-
-**Why?** After a hotfix is deployed to production, the fix needs to be merged back to develop to prevent regression.
-
----
-_Created automatically by ShipBrain_"
+            --body "Reverse sync of hotfix ${{ inputs.release_tag }} from main to develop. Created by ShipBrain."
 
           echo "Reverse sync PR created successfully"
       - name: Notify ShipBrain of reverse sync
