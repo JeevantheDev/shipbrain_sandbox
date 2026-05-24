@@ -16,6 +16,18 @@ on:
         options:
           - "false"
           - "true"
+      deploy_preview:
+        description: Deploy the current ref to the Vercel Preview environment
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      source_pr_number:
+        description: ShipBrain source PR number to attach preview metadata to
+        required: false
+        default: ""
 
 concurrency:
   group: shipbrain-ci-${{ github.event.pull_request.number || github.ref }}
@@ -92,7 +104,8 @@ jobs:
       needs.smoke.outputs.passed == 'true' &&
       (
         (github.event_name == 'pull_request' && github.base_ref == 'develop') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+        (github.event_name == 'workflow_dispatch' && inputs.deploy_preview == 'true')
       )
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -163,7 +176,7 @@ jobs:
               \"sha\": \"$GITHUB_SHA\",
               \"branch\": \"$GITHUB_REF_NAME\",
               \"event_type\": \"${{ github.event_name }}\",
-              \"pr_number\": \"${{ github.event.pull_request.number }}\",
+              \"pr_number\": \"${{ github.event.pull_request.number || inputs.source_pr_number }}\",
               \"environment\": \"preview\",
               \"preview_url\": \"${{ steps.deploy.outputs.url }}\",
               \"branch_alias\": \"${{ steps.deploy.outputs.branch_alias }}\"
