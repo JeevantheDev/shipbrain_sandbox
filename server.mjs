@@ -62,13 +62,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "POST" && request.url === "/api/trigger-incident") {
-    if (!routingKey) {
-      sendJson(response, 500, {
-        error: "Incident provider routing key is required. Configure the sandbox alert provider key in the runtime environment."
-      });
-      return;
-    }
-
     const payload = JSON.parse(await readBody(request));
     if (payload.shouldTriggerIncident === false) {
       sendJson(response, 200, {
@@ -81,51 +74,73 @@ const server = http.createServer(async (request, response) => {
     }
 
     const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}`;
-    const pagerDutyPayload = {
-      routing_key: routingKey,
-      event_action: "trigger",
-      dedup_key: dedupKey,
-      payload: {
-        summary: payload.title,
-        source: payload.repo,
-        severity: payload.severity,
-        component: payload.service,
-        group: payload.environment,
-        class: "sandbox-drill",
-        custom_details: {
-          repo: payload.repo,
-          environment: payload.environment,
-          service: payload.service,
-          severity: payload.severity,
-          logs: payload.logs,
-          branch: payload.branch,
-          commit: payload.commit,
-          releaseVersion: payload.releaseVersion ?? releaseVersion,
-          cart: payload.cart,
-          mockCheckout: true
-        }
-      },
-      links: [
-        {
-          href: "https://github.com/JeevantheDev/shipbrain_sandbox",
-          text: "Sandbox repository"
-        }
-      ],
-      images: []
-    };
+    let pagerDutyAccepted = false;
+    let pagerDutyStatus = 0;
+    let pagerDutyBody = {};
 
-    const pagerDutyResponse = await fetch("https://events.pagerduty.com/v2/enqueue", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(pagerDutyPayload)
-    });
-    const body = await pagerDutyResponse.json().catch(() => ({}));
+    if (routingKey) {
+      const pagerDutyPayload = {
+        routing_key: routingKey,
+        event_action: "trigger",
+        dedup_key: dedupKey,
+        payload: {
+          summary: payload.title,
+          source: payload.repo,
+          severity: payload.severity,
+          component: payload.service,
+          group: payload.environment,
+          class: "sandbox-drill",
+          custom_details: {
+            repo: payload.repo,
+            environment: payload.environment,
+            service: payload.service,
+            severity: payload.severity,
+            logs: payload.logs,
+            branch: payload.branch,
+            commit: payload.commit,
+            releaseVersion: payload.releaseVersion ?? releaseVersion,
+            cart: payload.cart,
+            mockCheckout: true
+          }
+        },
+        links: [
+          {
+            href: "https://github.com/JeevantheDev/shipbrain_sandbox",
+            text: "Sandbox repository"
+          }
+        ],
+        images: []
+      };
+
+      try {
+        const pagerDutyResponse = await fetch("https://events.pagerduty.com/v2/enqueue", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(pagerDutyPayload)
+        });
+        pagerDutyAccepted = pagerDutyResponse.ok;
+        pagerDutyStatus = pagerDutyResponse.status;
+        pagerDutyBody = await pagerDutyResponse.json().catch(() => ({}));
+      } catch (e) {
+        console.error("PagerDuty failed", e);
+      }
+    }
+
+    const shipBrainApiUrl = process.env.SHIPBRAIN_API_URL;
+    const shipBrainApiKey = process.env.SHIPBRAIN_API_KEY;
     const shipBrainWebhookUrl =
       process.env.SHIPBRAIN_INCIDENT_WEBHOOK_URL ??
+      (shipBrainApiUrl ? `${shipBrainApiUrl.replace(/\/$/, "")}/api/webhooks/incidents` : null) ??
       "https://12d4-2401-4900-1f29-7150-7c7f-a83c-c90b-7e2c.ngrok-free.app/api/webhooks/incidents";
+
+    const headers = { "content-type": "application/json" };
+    if (shipBrainApiKey) {
+      headers["Authorization"] = `Bearer ${shipBrainApiKey}`;
+    }
+
     const shipBrainResponse = await fetch(shipBrainWebhookUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({
         source: "cartlane-checkout",
         repo: payload.repo,
@@ -139,13 +154,20 @@ const server = http.createServer(async (request, response) => {
         releaseVersion: payload.releaseVersion ?? releaseVersion,
         incidentId: dedupKey
       })
-    }).catch((error) => ({ ok: false, status: 0, json: async () => ({ error: error instanceof Error ? error.message : "ShipBrain webhook failed" }) }));
+    }).catch((error) => ({
+      ok: false,
+      status: 0,
+      json: async () => ({ error: error instanceof Error ? error.message : "ShipBrain webhook failed" })
+    }));
+
     const shipBrainBody = await shipBrainResponse.json().catch(() => ({}));
-    sendJson(response, pagerDutyResponse.ok ? 202 : pagerDutyResponse.status, {
-      alertProviderStatus: pagerDutyResponse.status,
+    sendJson(response, shipBrainResponse.ok ? 202 : (shipBrainResponse.status || 500), {
       dedupKey,
-      providerAccepted: pagerDutyResponse.ok,
-      body
+      shipBrainStatus: shipBrainResponse.status,
+      shipBrainBody,
+      pagerDutyStatus,
+      providerAccepted: pagerDutyAccepted,
+      body: pagerDutyBody
     });
     return;
   }
