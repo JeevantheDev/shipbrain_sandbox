@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: ["ShipBrain CI", "ShipBrain Preview Deploy", "ShipBrain Production Deploy"]
     types: [completed]
+    branches: [develop, main]
 
 jobs:
   notify:
