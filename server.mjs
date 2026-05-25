@@ -8,7 +8,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(path.join(__dirname, ".env"));
 
 const port = Number(process.env.PORT ?? 5174);
-const routingKey = process.env.PAGERDUTY_ROUTING_KEY;
 const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.24";
 
 function loadEnvFile(filePath) {
@@ -68,63 +67,12 @@ const server = http.createServer(async (request, response) => {
         outcome: "checkout_succeeded",
         releaseVersion: payload.releaseVersion ?? releaseVersion,
         headingColor: payload.headingColor ?? "not provided",
-        message: "No incident was opened because the checkout heading is not green."
+        message: "ShipBrain incident was not triggered because the checkout heading is not green."
       });
       return;
     }
 
     const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}`;
-    let pagerDutyAccepted = false;
-    let pagerDutyStatus = 0;
-    let pagerDutyBody = {};
-
-    if (routingKey) {
-      const pagerDutyPayload = {
-        routing_key: routingKey,
-        event_action: "trigger",
-        dedup_key: dedupKey,
-        payload: {
-          summary: payload.title,
-          source: payload.repo,
-          severity: payload.severity,
-          component: payload.service,
-          group: payload.environment,
-          class: "sandbox-drill",
-          custom_details: {
-            repo: payload.repo,
-            environment: payload.environment,
-            service: payload.service,
-            severity: payload.severity,
-            logs: payload.logs,
-            branch: payload.branch,
-            commit: payload.commit,
-            releaseVersion: payload.releaseVersion ?? releaseVersion,
-            cart: payload.cart,
-            mockCheckout: true
-          }
-        },
-        links: [
-          {
-            href: "https://github.com/JeevantheDev/shipbrain_sandbox",
-            text: "Sandbox repository"
-          }
-        ],
-        images: []
-      };
-
-      try {
-        const pagerDutyResponse = await fetch("https://events.pagerduty.com/v2/enqueue", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(pagerDutyPayload)
-        });
-        pagerDutyAccepted = pagerDutyResponse.ok;
-        pagerDutyStatus = pagerDutyResponse.status;
-        pagerDutyBody = await pagerDutyResponse.json().catch(() => ({}));
-      } catch (e) {
-        console.error("PagerDuty failed", e);
-      }
-    }
 
     const shipBrainApiUrl = process.env.SHIPBRAIN_API_URL;
     const shipBrainApiKey = process.env.SHIPBRAIN_API_KEY;
@@ -165,9 +113,8 @@ const server = http.createServer(async (request, response) => {
       dedupKey,
       shipBrainStatus: shipBrainResponse.status,
       shipBrainBody,
-      pagerDutyStatus,
-      providerAccepted: pagerDutyAccepted,
-      body: pagerDutyBody
+      providerAccepted: shipBrainResponse.ok,
+      body: shipBrainBody
     });
     return;
   }
