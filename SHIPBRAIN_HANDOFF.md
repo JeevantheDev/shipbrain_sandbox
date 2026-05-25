@@ -7,6 +7,6 @@ The developer should continue work on this feature branch and commit the request
 ## Requested tasks
 
 ### Update checkout heading color to green
-Modify the CSS in index.html to change the main checkout heading color from #333 to green.
+Change the main checkout heading color in index.html from #333 to green to test the ShipBrain E2E flow.
 
 Suggested files: index.html
