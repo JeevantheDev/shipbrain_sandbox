@@ -1,0 +1,159 @@
+name: ShipBrain Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag (e.g., release-v2024.01.15-1430)
+        required: true
+        type: string
+      release_sha:
+        description: Merge commit SHA for the release
+        required: true
+        type: string
+      is_hotfix:
+        description: Is this a hotfix deployment?
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      reverse_sync:
+        description: After hotfix, sync changes back to develop?
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+concurrency:
+  group: shipbrain-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      SHIPBRAIN_RELEASE_TAG: ${{ inputs.release_tag }}
+      SHIPBRAIN_RELEASE_SHA: ${{ inputs.release_sha }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify release SHA
+        run: |
+          ACTUAL=$(git rev-parse HEAD)
+          EXPECTED="$SHIPBRAIN_RELEASE_SHA"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "SHA mismatch - deploy blocked"
+            echo "Expected : $EXPECTED"
+            echo "Actual   : $ACTUAL"
+            exit 1
+          fi
+          echo "SHA verified - deploying $SHIPBRAIN_RELEASE_TAG"
+      - name: Pull Vercel Production environment
+        run: npx vercel@latest pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Build Production artifact
+        run: npx vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Deploy to Production
+        run: |
+          npx vercel@latest deploy --prebuilt --prod \
+            --token="${{ secrets.VERCEL_TOKEN }}" \
+            --env SHIPBRAIN_RELEASE_TAG="$SHIPBRAIN_RELEASE_TAG"
+      - name: Notify ShipBrain
+        if: always()
+        continue-on-error: true
+        env:
+          SHIPBRAIN_API_URL: ${{ secrets.SHIPBRAIN_API_URL }}
+          SHIPBRAIN_API_KEY: ${{ secrets.SHIPBRAIN_API_KEY }}
+        run: |
+          if [ -z "$SHIPBRAIN_API_URL" ] || [ -z "$SHIPBRAIN_API_KEY" ]; then
+            echo "ShipBrain secrets missing; notification skipped."
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST "$SHIPBRAIN_API_URL/api/deployments/result" \
+            -H "Authorization: Bearer $SHIPBRAIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo\": \"$GITHUB_REPOSITORY\",
+              \"tag\": \"$SHIPBRAIN_RELEASE_TAG\",
+              \"sha\": \"$SHIPBRAIN_RELEASE_SHA\",
+              \"status\": \"${{ job.status }}\",
+              \"is_hotfix\": \"${{ inputs.is_hotfix }}\",
+              \"run_url\": \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"
+            }"
+
+  reverse-sync:
+    name: Sync hotfix to develop
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: inputs.is_hotfix == 'true' && inputs.reverse_sync == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create reverse sync PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          SYNC_BRANCH="shipbrain/reverse-sync-${{ inputs.release_tag }}"
+
+          # Create branch from main/master
+          git checkout -b "$SYNC_BRANCH"
+
+          # Push the branch
+          git push origin "$SYNC_BRANCH"
+
+          # Create PR to sync main → develop
+          gh pr create \
+            --base "develop" \
+            --head "$SYNC_BRANCH" \
+            --title "chore: sync ${{ inputs.release_tag }} hotfix to develop" \
+            --body "## Reverse Sync
+
+          This PR syncs the hotfix **${{ inputs.release_tag }}** from `main` back to `develop`.
+
+          **Why?** After a hotfix is deployed to production, the fix needs to be merged back to develop to prevent regression.
+
+          ---
+          _Created automatically by ShipBrain_"
+
+          echo "Reverse sync PR created successfully"
+      - name: Notify ShipBrain of reverse sync
+        continue-on-error: true
+        env:
+          SHIPBRAIN_API_URL: ${{ secrets.SHIPBRAIN_API_URL }}
+          SHIPBRAIN_API_KEY: ${{ secrets.SHIPBRAIN_API_KEY }}
+        run: |
+          if [ -z "$SHIPBRAIN_API_URL" ] || [ -z "$SHIPBRAIN_API_KEY" ]; then
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST "$SHIPBRAIN_API_URL/api/deployments/reverse-sync" \
+            -H "Authorization: Bearer $SHIPBRAIN_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repo\": \"$GITHUB_REPOSITORY\",
+              \"release_tag\": \"${{ inputs.release_tag }}\",
+              \"sync_branch\": \"shipbrain/reverse-sync-${{ inputs.release_tag }}\",
+              \"status\": \"${{ job.status }}\"
+            }"
