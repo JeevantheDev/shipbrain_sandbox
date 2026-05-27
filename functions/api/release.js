@@ -4,7 +4,10 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify({
     releaseVersion,
     repo: "JeevantheDev/shipbrain_sandbox",
-    mode: "mock-cart-checkout"
+    mode: "mock-cart-checkout",
+    envKeys: Object.keys(env),
+    apiUrl: env.SHIPBRAIN_API_URL ?? null,
+    webhookUrl: env.SHIPBRAIN_INCIDENT_WEBHOOK_URL ?? null
   }, null, 2), {
     status: 200,
     headers: { "content-type": "application/json" }
