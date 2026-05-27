@@ -28,15 +28,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch || github.ref }}
-          fetch-depth: 0
-
-      - name: Get actual commit SHA
-        id: get-sha
-        run: |
-          ACTUAL_SHA=$(git rev-parse HEAD)
-          echo "sha=$ACTUAL_SHA" >> $GITHUB_OUTPUT
-          echo "Deploying from branch: ${{ inputs.branch || github.ref }}"
-          echo "Actual commit SHA: $ACTUAL_SHA"
 
       - uses: actions/setup-node@v4
         with:
@@ -64,16 +55,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          DEPLOY_SHA: ${{ steps.get-sha.outputs.sha }}
         run: |
           echo "::group::Deploying to Cloudflare Pages"
-          echo "Branch: ${{ inputs.branch || 'develop' }}"
-          echo "Commit SHA: $DEPLOY_SHA"
           DEPLOY_OUTPUT=$(mktemp)
           wrangler pages deploy dist \
             --project-name="${{ secrets.CF_PROJECT_NAME }}" \
             --branch="${{ inputs.branch || 'develop' }}" \
-            --commit-hash="$DEPLOY_SHA" | tee "$DEPLOY_OUTPUT"
+            --commit-hash="$GITHUB_SHA" | tee "$DEPLOY_OUTPUT"
           echo "::endgroup::"
 
           # Extract deployment URL from output
@@ -82,8 +70,6 @@ jobs:
           echo ""
           echo "=========================================="
           echo "Preview deployed: $DEPLOY_URL"
-          echo "Branch: ${{ inputs.branch || 'develop' }}"
-          echo "SHA: $DEPLOY_SHA"
           echo "=========================================="
 
       - name: Notify ShipBrain
@@ -92,7 +78,6 @@ jobs:
         env:
           SHIPBRAIN_API_URL: ${{ secrets.SHIPBRAIN_API_URL }}
           SHIPBRAIN_API_KEY: ${{ secrets.SHIPBRAIN_API_KEY }}
-          DEPLOY_SHA: ${{ steps.get-sha.outputs.sha }}
         run: |
           if [ -z "$SHIPBRAIN_API_URL" ] || [ -z "$SHIPBRAIN_API_KEY" ]; then
             echo "ShipBrain secrets missing; notification skipped."
@@ -103,7 +88,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{
               \"repo\": \"$GITHUB_REPOSITORY\",
-              \"sha\": \"$DEPLOY_SHA\",
+              \"sha\": \"$GITHUB_SHA\",
               \"branch\": \"${{ inputs.branch || 'develop' }}\",
               \"pr_number\": \"${{ inputs.source_pr_number }}\",
               \"environment\": \"preview\",
