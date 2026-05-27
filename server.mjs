@@ -66,8 +66,7 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, {
         outcome: "checkout_succeeded",
         releaseVersion: payload.releaseVersion ?? releaseVersion,
-        headingColor: payload.headingColor ?? "not provided",
-        message: "ShipBrain incident was not triggered because the checkout heading is not green."
+        message: "ShipBrain incident was not triggered because the network is healthy."
       });
       return;
     }

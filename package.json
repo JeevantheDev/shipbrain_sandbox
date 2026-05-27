@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node server.mjs",
-    "build": "mkdir -p dist && cp index.html dist/ && cp -r api dist/ 2>/dev/null || true",
+    "build": "node build.mjs",
     "test": "echo 'No tests configured' && exit 0",
     "vercel:pull": "vercel pull --yes --environment=production",
     "vercel:build": "vercel build --prod",

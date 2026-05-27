@@ -12,8 +12,7 @@ export default async function handler(request, response) {
     response.status(200).json({
       outcome: "checkout_succeeded",
       releaseVersion: payload.releaseVersion ?? releaseVersion,
-      headingColor: payload.headingColor ?? "not provided",
-      message: "ShipBrain incident was not triggered because the checkout heading is not green."
+      message: "ShipBrain incident was not triggered because the network is healthy."
     });
     return;
   }
