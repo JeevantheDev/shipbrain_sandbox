@@ -20,7 +20,7 @@
 
       * { box-sizing: border-box; }
       body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eef3f1 0%, #f8faf9 42%, #f4f6f8 100%); }
-      h2 { color: green; }
+      h2 { color: #17211f; }
       button, input { font: inherit; }
       button { border: 0; cursor: pointer; }
       button:disabled { cursor: wait; opacity: 0.68; }
@@ -62,6 +62,7 @@
       .status { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; background: #faead2; color: #8b4d0b; font-size: 12px; font-weight: 900; padding: 5px 9px; }
       .status.green { background: #dff4ed; color: #0f654f; }
       .status.red { background: #fde7e7; color: var(--danger); }
+      .status.orange { background: #fff3e0; color: #e65100; }
       pre { max-height: 310px; overflow: auto; white-space: pre-wrap; border-radius: 8px; background: #101816; color: #d7f6ee; padding: 14px; font-size: 12px; line-height: 1.45; }
       .result { margin: 0; }
       .modal-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(10, 18, 16, 0.58); z-index: 50; }
@@ -73,6 +74,13 @@
       .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 18px; border-top: 1px solid var(--border); background: var(--soft); }
       .close { width: 34px; height: 34px; border-radius: 999px; background: #f1f4f3; color: #17211f; font-size: 20px; }
       .hidden { display: none; }
+      .network-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-bottom: 10px; }
+      .network-indicator.fast { background: #dff4ed; color: #0f654f; }
+      .network-indicator.slow { background: #fde7e7; color: var(--danger); }
+      .network-indicator .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .network-indicator.fast .dot { background: #0f654f; }
+      .network-indicator.slow .dot { background: var(--danger); animation: pulse 1s infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
       @media (max-width: 920px) {
         .layout { grid-template-columns: 1fr; }
@@ -116,14 +124,18 @@
       <main class="hero">
         <div class="hero-head">
           <div>
+            <div id="network-status" class="network-indicator fast">
+              <span class="dot"></span>
+              <span id="network-text">Network: 4G</span>
+            </div>
             <span class="status green">Secure checkout</span>
             <h2>Review your cart and confirm checkout.</h2>
-            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout does not charge cards or write to a database; confirming checkout runs a production-style health check with the active release version.</p>
+            <p class="hero-copy">This is a realistic mock storefront for testing ShipBrain. The checkout monitors network conditions; <strong>Slow 4G or slower connections</strong> will trigger a ShipBrain incident to simulate degraded user experience.</p>
           </div>
           <div class="secure">
             <strong>Order protection active</strong>
             <span>Payment sandbox verified</span>
-            <span>Release-aware incident tracing</span>
+            <span>Network-aware incident tracing</span>
           </div>
         </div>
 
@@ -194,7 +206,7 @@
             <div class="summary-row"><span>Tax</span><strong>$7.92</strong></div>
             <div class="summary-row total"><span>Total</span><strong>$115.92</strong></div>
             <button class="button primary" id="checkout">Confirm checkout</button>
-            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming checkout succeeds unless the checkout heading is green; green simulates a production regression and opens an incident in ShipBrain.</p>
+            <p style="margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45;">Confirming checkout succeeds on fast networks; <strong>Slow 4G or slower</strong> (use DevTools Network throttling) triggers a ShipBrain incident.</p>
             <pre class="result" id="result">No checkout incident sent yet.</pre>
           </aside>
         </section>
@@ -207,7 +219,7 @@
           <div>
             <span class="status red" id="modal-status">Incident drill</span>
             <h3 id="modal-title">Confirm checkout</h3>
-            <p id="modal-description">This mock checkout will validate whether the current UI color should raise an incident.</p>
+            <p id="modal-description">This mock checkout will check network conditions and raise an incident if connection is slow.</p>
           </div>
           <button class="close" id="close-modal" aria-label="Close checkout modal">&times;</button>
         </div>
@@ -218,8 +230,8 @@
               <h3 id="modal-release">cart-v2026.05.24</h3>
             </div>
             <div class="panel">
-              <span class="status">Total</span>
-              <h3>$115.92</h3>
+              <span class="status" id="modal-network-status">Network</span>
+              <h3 id="modal-network">Checking...</h3>
             </div>
           </div>
           <pre id="payload"></pre>
@@ -244,15 +256,74 @@
       const modalRelease = document.querySelector("#modal-release");
       const modalStatus = document.querySelector("#modal-status");
       const modalDescription = document.querySelector("#modal-description");
+      const modalNetwork = document.querySelector("#modal-network");
+      const modalNetworkStatus = document.querySelector("#modal-network-status");
+      const networkStatusEl = document.querySelector("#network-status");
+      const networkTextEl = document.querySelector("#network-text");
       let releaseVersion = "cart-v2026.05.24";
 
-      function headingColorMode() {
-        const heading = document.querySelector(".hero h2");
-        const color = window.getComputedStyle(heading).color;
-        const normalized = color.replace(/\s+/g, "").toLowerCase();
-        const isGreen = normalized === "rgb(0,128,0)" || normalized === "green" || normalized === "rgb(18,113,95)" || normalized === "rgb(13,95,80)";
-        return { color, isGreen };
+      /**
+       * Detect network speed using Network Information API
+       * Returns { isSlow, effectiveType, downlink, rtt, description }
+       *
+       * Slow network is defined as:
+       * - effectiveType is "slow-2g", "2g", or "3g"
+       * - OR effectiveType is "4g" but downlink < 1.5 Mbps (DevTools "Slow 4G" preset)
+       */
+      function getNetworkInfo() {
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+        if (!connection) {
+          return {
+            isSlow: false,
+            effectiveType: "unknown",
+            downlink: null,
+            rtt: null,
+            description: "Network API not supported"
+          };
+        }
+
+        const effectiveType = connection.effectiveType || "unknown";
+        const downlink = connection.downlink; // Mbps
+        const rtt = connection.rtt; // ms
+
+        // Determine if network is slow
+        // slow-2g, 2g, 3g are always slow
+        // 4g with downlink < 1.5 Mbps is "Slow 4G" (DevTools preset uses ~0.4 Mbps)
+        const slowTypes = ["slow-2g", "2g", "3g"];
+        const isSlow = slowTypes.includes(effectiveType) ||
+                       (effectiveType === "4g" && downlink !== undefined && downlink < 1.5);
+
+        let description = effectiveType.toUpperCase();
+        if (downlink !== undefined) {
+          description += ` (${downlink} Mbps)`;
+        }
+        if (rtt !== undefined) {
+          description += ` - ${rtt}ms RTT`;
+        }
+
+        return { isSlow, effectiveType, downlink, rtt, description };
       }
+
+      function updateNetworkDisplay() {
+        const network = getNetworkInfo();
+
+        if (network.isSlow) {
+          networkStatusEl.className = "network-indicator slow";
+          networkTextEl.textContent = `Slow Network: ${network.description}`;
+        } else {
+          networkStatusEl.className = "network-indicator fast";
+          networkTextEl.textContent = `Network: ${network.description}`;
+        }
+      }
+
+      // Update network display on load and when connection changes
+      updateNetworkDisplay();
+      if (navigator.connection) {
+        navigator.connection.addEventListener("change", updateNetworkDisplay);
+      }
+      // Poll for changes (in case event doesn't fire in DevTools throttling)
+      setInterval(updateNetworkDisplay, 2000);
 
       async function loadRelease() {
         refresh.disabled = true;
@@ -270,23 +341,27 @@
       }
 
       function buildPayload() {
+        const network = getNetworkInfo();
         return {
           repo: "JeevantheDev/shipbrain_sandbox",
           environment: "sandbox",
           service: "checkout-api",
           severity: "critical",
-          title: `Checkout API latency breach on ${releaseVersion}`,
+          title: `Checkout degraded - Slow network detected (${network.effectiveType.toUpperCase()})`,
           logs: [
-            `Production alert: checkout-api p95 latency breached 2400ms on release ${releaseVersion}.`,
+            `Production alert: checkout-api experiencing degraded performance on release ${releaseVersion}.`,
+            `Network condition: ${network.description}`,
+            `Effective type: ${network.effectiveType}`,
+            `Downlink: ${network.downlink ?? 'unknown'} Mbps`,
+            `RTT: ${network.rtt ?? 'unknown'} ms`,
             "Customer action: confirm checkout submitted cart total $115.92.",
-            "Impact: POST /api/checkout requests timing out for test tenants.",
-            "Suspected dependency: payment-provider sandbox endpoint returning ETIMEDOUT.",
-            "Suggested rollback: disable PAYMENT_RETRY_FANOUT and redeploy previous cart release."
+            "Impact: Users on slow connections experiencing timeout errors.",
+            "Suggested action: Enable offline mode or reduce payload size for slow networks."
           ].join("\\n"),
-          branch: "main",
+          branch: "test-update-checkout-heading-color",
           commit: releaseVersion,
           releaseVersion,
-          headingColor: headingColorMode().color,
+          networkInfo: network,
           shouldTriggerIncident: true,
           cart: {
             orderId: "CL-MOCK-1048",
@@ -298,21 +373,29 @@
       }
 
       function updatePayloadPreview() {
-        const colorMode = headingColorMode();
+        const network = getNetworkInfo();
         modalRelease.textContent = releaseVersion;
-        if (colorMode.isGreen) {
+        modalNetwork.textContent = network.description;
+
+        if (network.isSlow) {
           modalStatus.className = "status red";
-          modalStatus.textContent = "Incident drill";
-          modalDescription.textContent = "The checkout heading is green, so this mock release is treated as a regression and will open a ShipBrain incident.";
+          modalStatus.textContent = "Slow network detected";
+          modalNetworkStatus.className = "status red";
+          modalDescription.textContent = "Your network is Slow 4G or slower. This will trigger a ShipBrain incident to simulate degraded checkout experience.";
           confirmCheckout.textContent = "Confirm checkout and send incident";
-          payloadPreview.textContent = JSON.stringify({ headingColor: colorMode.color, outcome: "failure", incidentPayload: buildPayload() }, null, 2);
+          payloadPreview.textContent = JSON.stringify({
+            networkInfo: network,
+            outcome: "failure",
+            incidentPayload: buildPayload()
+          }, null, 2);
         } else {
           modalStatus.className = "status green";
-          modalStatus.textContent = "Checkout healthy";
-          modalDescription.textContent = "The checkout heading is not green, so the mock checkout will complete successfully without opening an incident.";
+          modalStatus.textContent = "Fast network";
+          modalNetworkStatus.className = "status green";
+          modalDescription.textContent = "Your network connection is good. The checkout will complete successfully without opening an incident.";
           confirmCheckout.textContent = "Confirm successful checkout";
           payloadPreview.textContent = JSON.stringify({
-            headingColor: colorMode.color,
+            networkInfo: network,
             outcome: "success",
             releaseVersion,
             orderId: "CL-MOCK-1048",
@@ -331,14 +414,15 @@
       }
 
       async function sendIncident() {
-        const colorMode = headingColorMode();
-        if (!colorMode.isGreen) {
+        const network = getNetworkInfo();
+
+        if (!network.isSlow) {
           result.textContent = JSON.stringify({
             status: 200,
             outcome: "checkout_succeeded",
             releaseVersion,
-            headingColor: colorMode.color,
-            message: "Checkout completed successfully. No incident was opened because the heading is not green."
+            networkInfo: network,
+            message: "Checkout completed successfully. No incident was opened because network is fast."
           }, null, 2);
           hideCheckoutModal();
           return;
@@ -347,7 +431,7 @@
         const payload = buildPayload();
         confirmCheckout.disabled = true;
         checkout.disabled = true;
-        result.textContent = "Sending checkout alert to ShipBrain...";
+        result.textContent = "Sending slow network incident to ShipBrain...";
         try {
           const response = await fetch("/api/trigger-incident", {
             method: "POST",
@@ -380,4 +464,4 @@
     </script>
   </body>
 </html>
-<!-- Release test 20260524-131257 -->
+<!-- Network-based incident detection - triggers on Slow 4G or slower -->
