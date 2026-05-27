@@ -1,0 +1,76 @@
+export async function onRequestPost(context) {
+  const { request, env } = context;
+
+  const releaseVersion = env.SHIPBRAIN_RELEASE_TAG ?? env.RELEASE_VERSION ?? "cart-v2026.05.24";
+  
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    payload = {};
+  }
+
+  if (payload.shouldTriggerIncident === false) {
+    return new Response(JSON.stringify({
+      outcome: "checkout_succeeded",
+      releaseVersion: payload.releaseVersion ?? releaseVersion,
+      message: "ShipBrain incident was not triggered because the network is healthy."
+    }, null, 2), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+
+  const dedupKey = `shipbrain-sandbox-${payload.service ?? "checkout-api"}-${payload.environment ?? "sandbox"}-${releaseVersion}`;
+
+  const shipBrainApiUrl = env.SHIPBRAIN_API_URL;
+  const shipBrainApiKey = env.SHIPBRAIN_API_KEY;
+  const shipBrainWebhookUrl =
+    env.SHIPBRAIN_INCIDENT_WEBHOOK_URL ??
+    (shipBrainApiUrl ? `${shipBrainApiUrl.replace(/\/$/, "")}/api/webhooks/incidents` : null) ??
+    "https://12d4-2401-4900-1f29-7150-7c7f-a83c-c90b-7e2c.ngrok-free.app/api/webhooks/incidents";
+
+  const headers = { "content-type": "application/json" };
+  if (shipBrainApiKey) {
+    headers["Authorization"] = `Bearer ${shipBrainApiKey}`;
+  }
+
+  try {
+    const shipBrainResponse = await fetch(shipBrainWebhookUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        source: "cartlane-checkout",
+        repo: payload.repo,
+        environment: payload.environment,
+        service: payload.service,
+        severity: payload.severity,
+        title: payload.title,
+        logs: payload.logs,
+        branch: payload.branch,
+        commit: payload.commit,
+        releaseVersion: payload.releaseVersion ?? releaseVersion,
+        incidentId: dedupKey
+      })
+    });
+
+    const shipBrainBody = await shipBrainResponse.json().catch(() => ({}));
+    return new Response(JSON.stringify({
+      dedupKey,
+      shipBrainStatus: shipBrainResponse.status,
+      shipBrainBody,
+      providerAccepted: shipBrainResponse.ok,
+      body: shipBrainBody
+    }, null, 2), {
+      status: shipBrainResponse.ok ? 202 : (shipBrainResponse.status || 500),
+      headers: { "content-type": "application/json" }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "ShipBrain webhook failed"
+    }, null, 2), {
+      status: 500,
+      headers: { "content-type": "application/json" }
+    });
+  }
+}
