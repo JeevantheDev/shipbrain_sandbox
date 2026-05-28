@@ -248,7 +248,7 @@
       const modalRelease = document.querySelector("#modal-release");
       const modalStatus = document.querySelector("#modal-status");
       const modalDescription = document.querySelector("#modal-description");
-      let releaseVersion = "cart-v2026.05.24";
+      let releaseVersion = "release-pending";
 
       function isThrottledMode() {
         const simulateCheckbox = document.querySelector("#simulate-throttling");
@@ -266,13 +266,21 @@
       async function loadRelease() {
         refresh.disabled = true;
         try {
-          const response = await fetch("/api/release");
+          const response = await fetch(`/release.json?ts=${Date.now()}`, { cache: "no-store" });
           const body = await response.json();
-          releaseVersion = body.releaseVersion;
+          releaseVersion = body.releaseVersion || releaseVersion;
           version.textContent = `Release ${releaseVersion}`;
           updatePayloadPreview();
         } catch (error) {
-          version.textContent = "Release unavailable";
+          try {
+            const response = await fetch(`/api/release?ts=${Date.now()}`, { cache: "no-store" });
+            const body = await response.json();
+            releaseVersion = body.releaseVersion || releaseVersion;
+            version.textContent = `Release ${releaseVersion}`;
+            updatePayloadPreview();
+          } catch {
+            version.textContent = `Release ${releaseVersion}`;
+          }
         } finally {
           refresh.disabled = false;
         }

@@ -5,7 +5,7 @@ export default async function handler(request, response) {
     return;
   }
 
-  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.24";
+  const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "release-pending";
   const payload = request.body ?? {};
 
   if (payload.shouldTriggerIncident === false) {

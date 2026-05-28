@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(path.join(__dirname, ".env"));
 
 const port = Number(process.env.PORT ?? 5174);
-const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "cart-v2026.05.24";
+const releaseVersion = process.env.SHIPBRAIN_RELEASE_TAG ?? process.env.RELEASE_VERSION ?? "release-pending";
 
 function loadEnvFile(filePath) {
   try {
