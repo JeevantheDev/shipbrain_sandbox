@@ -1,7 +1,7 @@
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  const releaseVersion = env.SHIPBRAIN_RELEASE_TAG ?? env.RELEASE_VERSION ?? "cart-v2026.05.24";
+  const releaseVersion = env.SHIPBRAIN_RELEASE_TAG ?? env.RELEASE_VERSION ?? "release-pending";
   
   let payload;
   try {

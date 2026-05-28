@@ -1,6 +1,6 @@
 export async function onRequestGet(context) {
   const { env } = context;
-  const releaseVersion = env.SHIPBRAIN_RELEASE_TAG ?? env.RELEASE_VERSION ?? "cart-v2026.05.24";
+  const releaseVersion = env.SHIPBRAIN_RELEASE_TAG ?? env.RELEASE_VERSION ?? "release-pending";
   return new Response(JSON.stringify({
     releaseVersion,
     repo: "JeevantheDev/shipbrain_sandbox",
