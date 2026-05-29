@@ -1,20 +1,19 @@
 # ShipBrain Incident Hotfix
 
-Incident: Checkout API latency breach on release-v2026.05.28-063124-ti8c
-Source release: release-v2026.05.28-063124-ti8c
+Incident: Checkout API latency breach on release-v2026.05.28-1644
+Source release: release-v2026.05.28-1644
 Repository: JeevantheDev/shipbrain_sandbox
 
 ## AI analysis
 
-Root cause: The checkout-api p95 latency breached 2400ms due to ETIMEDOUT errors from the external payment-provider sandbox endpoint. The commits in this release only modify the checkout heading color to blue, indicating that the release commits do not have a causal relationship with the latency breach. The issue is likely triggered by an external dependency failure combined with the PAYMENT_RETRY_FANOUT configuration.
+Root cause: Production alert: checkout-api p95 latency breached 2400ms on release release-v2026.05.28-1644.\nCustomer action: confirm checkout submitted cart total $115.92.\nImpact: POST /api/checkout requests timing out for test tenants.\nSuspected dependency: payment-provider sandbox endpoint returning ETIMEDOUT.\nSuggested rollback: disable PAYMENT_RETRY_FANOUT and redeploy previous cart release.
 
-Fix proposal: Disable the PAYMENT_RETRY_FANOUT configuration/feature flag to mitigate the retry storm to the failing payment-provider sandbox. Coordinate with the payment provider to resolve their sandbox endpoint timeouts.
+Fix proposal: Developer to investigate and implement fix
 
-How it occurred: This release introduced a minor UI change updating the checkout heading color to blue. Concurrently, a latency breach occurred on the checkout API due to external payment provider timeouts.
+How it occurred: ShipBrain did not receive enough commit context to infer a precise path.
 
 ## Related release commits
-- 62362fd test: update checkout heading color to blue
-- 5a0d92b Merge pull request #57 from JeevantheDev/test-update-checkout-heading-color
+- No linked release commits were found.
 
 ## Developer instructions
 
