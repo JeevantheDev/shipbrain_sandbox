@@ -77,8 +77,15 @@ const server = http.createServer(async (request, response) => {
     const shipBrainApiKey = process.env.SHIPBRAIN_API_KEY;
     const shipBrainWebhookUrl =
       process.env.SHIPBRAIN_INCIDENT_WEBHOOK_URL ??
-      (shipBrainApiUrl ? `${shipBrainApiUrl.replace(/\/$/, "")}/api/webhooks/incidents` : null) ??
-      "https://12d4-2401-4900-1f29-7150-7c7f-a83c-c90b-7e2c.ngrok-free.app/api/webhooks/incidents";
+      (shipBrainApiUrl ? `${shipBrainApiUrl.replace(/\/$/, "")}/api/webhooks/incidents` : null);
+
+    if (!shipBrainWebhookUrl) {
+      sendJson(response, 500, {
+        error: "ShipBrain incident webhook is not configured.",
+        detail: "Set SHIPBRAIN_API_URL or SHIPBRAIN_INCIDENT_WEBHOOK_URL during ShipBrain repo onboarding."
+      });
+      return;
+    }
 
     const headers = { "content-type": "application/json" };
     if (shipBrainApiKey) {
