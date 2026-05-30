@@ -1,7 +1,7 @@
 # ShipBrain Incident Hotfix
 
-Incident: Checkout API latency breach on release-v2026.05.30-0624
-Source release: release-v2026.05.30-0624
+Incident: Checkout API latency breach on release-v2026.05.30-1025
+Source release: release-v2026.05.30-1025
 Repository: JeevantheDev/shipbrain_sandbox
 
 ## AI analysis
