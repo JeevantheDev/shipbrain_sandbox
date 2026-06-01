@@ -7,6 +7,6 @@ The developer should continue work on this feature branch and commit the request
 ## Requested tasks
 
 ### Update checkout heading color in index.html
-Change the main checkout heading color from dark gray (#333) to blue (#0066cc) in the CSS within index.html. Ensure the existing layout remains unchanged and no other files are modified.
+Change the main checkout heading color from dark gray (#333) to blue (#0066cc) in the CSS of index.html. Ensure that the existing layout remains unchanged and no other files are modified.
 
 Suggested files: index.html
