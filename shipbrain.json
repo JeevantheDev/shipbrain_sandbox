@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "repo": "JeevantheDev/shipbrain_sandbox",
+  "branches": {
+    "production": "main",
+    "development": "develop"
+  },
+  "build": {
+    "command": "npm run build",
+    "outputDir": "dist"
+  },
+  "cloudflare": {
+    "projectName": "sb-jeevanthedev-shipbrain-sandbox",
+    "projectUrl": "https://sb-jeevanthedev-shipbrain-sandbox.pages.dev"
+  }
+}
